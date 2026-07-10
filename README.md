@@ -38,3 +38,11 @@ uv run python backtest.py
 ```
 
 The baseline strategy is a simple moving-average trend filter. It emits same-day signals, and `backtest.py` shifts positions by one trading day so execution only uses already-observed data.
+
+The backtest reports full-period metrics plus a fixed out-of-sample window starting on 2020-01-01.
+
+## Run Tests
+
+```bash
+uv run python -m unittest discover -s tests
+```

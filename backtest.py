@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
 
 from data import Bar, load_bars
@@ -14,11 +15,13 @@ from metrics import (
     sortino_ratio,
 )
 from strategy import generate_signals
+from validate import validate_bars, validate_signals
 
 
 # BPS means basis points. 1 basis point is 0.01%, so 2 bps is 0.02%.
 # TRANSACTION_COST_BPS is the one-way trading cost charged per unit of turnover.
 TRANSACTION_COST_BPS = 2.0
+SPLIT_DATE = dt.date(2020, 1, 1)
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,16 @@ class BacktestResult:
     num_trades: int
     # Weighted score combining return, risk, drawdown, and turnover.
     composite_score: float
+    # First date assigned to the out-of-sample evaluation window.
+    split_date: str
+    # Composite score before split_date. Useful for detecting overfit ideas.
+    in_sample_composite_score: float
+    # Composite score on and after split_date. This is the primary research score.
+    out_of_sample_composite_score: float
+    # Out-of-sample Sharpe ratio.
+    out_of_sample_sharpe: float
+    # Out-of-sample worst peak-to-trough equity decline.
+    out_of_sample_max_drawdown: float
     # First data date used in the backtest.
     start_date: str
     # Last data date used in the backtest.
@@ -51,18 +64,11 @@ class BacktestResult:
     num_bars: int
 
 
-def _validate_signals(signals: list[float], bars: list[Bar]) -> None:
-    if len(signals) != len(bars):
-        raise ValueError("strategy returned a signal count that does not match bars")
-    for index, signal in enumerate(signals):
-        if signal < 0.0 or signal > 1.0:
-            raise ValueError(f"signal at index {index} is outside [0.0, 1.0]")
-
-
-def run_backtest(bars: list[Bar]) -> BacktestResult:
-    signals = generate_signals(bars)
-    _validate_signals(signals, bars)
-
+def _daily_strategy_returns(
+    bars: list[Bar],
+    signals: list[float],
+    transaction_cost_bps: float,
+) -> tuple[list[float], list[float]]:
     # Execute today's signal on the next bar to avoid same-close lookahead.
     positions = [0.0] + signals[:-1]
     returns: list[float] = []
@@ -74,19 +80,22 @@ def run_backtest(bars: list[Bar]) -> BacktestResult:
         position = positions[index]
         turnover = abs(position - previous_position)
         # Cost is charged on absolute exposure change, e.g. 0->1 or 1->0.
-        cost = turnover * TRANSACTION_COST_BPS / 10_000.0
+        cost = turnover * transaction_cost_bps / 10_000.0
         returns.append(position * close_return - cost)
         turnovers.append(turnover)
         previous_position = position
 
-    total = compound_return(returns)
+    return returns, turnovers
+
+
+def _metric_summary(returns: list[float], turnovers: list[float]) -> dict[str, float]:
     annual_return = annualized_return(returns)
-    annual_volatility = annualized_volatility(returns)
     sharpe = sharpe_ratio(returns)
     sortino = sortino_ratio(returns)
     drawdown = max_drawdown(returns)
-    annual_turnover = sum(turnovers) / len(turnovers) * TRADING_DAYS_PER_YEAR
-    num_trades = sum(1 for value in turnovers if value > 0.0)
+    annual_turnover = (
+        sum(turnovers) / len(turnovers) * TRADING_DAYS_PER_YEAR if turnovers else 0.0
+    )
     score = composite_score(
         annual_return=annual_return,
         sharpe=sharpe,
@@ -94,17 +103,65 @@ def run_backtest(bars: list[Bar]) -> BacktestResult:
         max_drawdown_value=drawdown,
         annual_turnover=annual_turnover,
     )
+    return {
+        "annual_return": annual_return,
+        "annual_volatility": annualized_volatility(returns),
+        "sharpe": sharpe,
+        "sortino": sortino,
+        "max_drawdown": drawdown,
+        "annual_turnover": annual_turnover,
+        "composite_score": score,
+    }
+
+
+def run_backtest(
+    bars: list[Bar],
+    transaction_cost_bps: float = TRANSACTION_COST_BPS,
+) -> BacktestResult:
+    validate_bars(bars)
+    signals = generate_signals(bars)
+    validate_signals(signals, bars)
+    returns, turnovers = _daily_strategy_returns(bars, signals, transaction_cost_bps)
+
+    total = compound_return(returns)
+    full_metrics = _metric_summary(returns, turnovers)
+    num_trades = sum(1 for value in turnovers if value > 0.0)
+
+    # Return index 0 corresponds to bars[1], so use bars[1:] for split labels.
+    return_dates = [bar.date for bar in bars[1:]]
+    in_sample_indices = [
+        index for index, return_date in enumerate(return_dates) if return_date < SPLIT_DATE
+    ]
+    out_of_sample_indices = [
+        index for index, return_date in enumerate(return_dates) if return_date >= SPLIT_DATE
+    ]
+    if not in_sample_indices or not out_of_sample_indices:
+        raise ValueError(f"bars must cover both sides of split date {SPLIT_DATE}")
+
+    in_sample_metrics = _metric_summary(
+        [returns[index] for index in in_sample_indices],
+        [turnovers[index] for index in in_sample_indices],
+    )
+    out_of_sample_metrics = _metric_summary(
+        [returns[index] for index in out_of_sample_indices],
+        [turnovers[index] for index in out_of_sample_indices],
+    )
 
     return BacktestResult(
         total_return=total,
-        annual_return=annual_return,
-        annual_volatility=annual_volatility,
-        sharpe=sharpe,
-        sortino=sortino,
-        max_drawdown=drawdown,
-        annual_turnover=annual_turnover,
+        annual_return=full_metrics["annual_return"],
+        annual_volatility=full_metrics["annual_volatility"],
+        sharpe=full_metrics["sharpe"],
+        sortino=full_metrics["sortino"],
+        max_drawdown=full_metrics["max_drawdown"],
+        annual_turnover=full_metrics["annual_turnover"],
         num_trades=num_trades,
-        composite_score=score,
+        composite_score=full_metrics["composite_score"],
+        split_date=str(SPLIT_DATE),
+        in_sample_composite_score=in_sample_metrics["composite_score"],
+        out_of_sample_composite_score=out_of_sample_metrics["composite_score"],
+        out_of_sample_sharpe=out_of_sample_metrics["sharpe"],
+        out_of_sample_max_drawdown=out_of_sample_metrics["max_drawdown"],
         start_date=str(bars[0].date),
         end_date=str(bars[-1].date),
         num_bars=len(bars),
@@ -125,6 +182,11 @@ def print_result(result: BacktestResult) -> None:
     print(f"annual_turnover:    {result.annual_turnover:.6f}")
     print(f"num_trades:         {result.num_trades}")
     print(f"composite_score:    {result.composite_score:.6f}")
+    print(f"split_date:         {result.split_date}")
+    print(f"is_score:           {result.in_sample_composite_score:.6f}")
+    print(f"oos_score:          {result.out_of_sample_composite_score:.6f}")
+    print(f"oos_sharpe:         {result.out_of_sample_sharpe:.6f}")
+    print(f"oos_max_drawdown:   {result.out_of_sample_max_drawdown:.6f}")
 
 
 def main() -> None:
