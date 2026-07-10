@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Local experiment outputs
+data/
+results.tsv
+run.log
+*.log
+
+# Local caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
