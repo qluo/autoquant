@@ -82,6 +82,8 @@ class BacktestTests(unittest.TestCase):
             annual_turnover=2.0,
             num_trades=4,
             composite_score=0.12,
+            sharpe_valid=True,
+            sortino_valid=True,
         )
         result = BacktestResult(
             full=summary,

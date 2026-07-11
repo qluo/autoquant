@@ -22,6 +22,7 @@ from metrics import (
     composite_score,
     compound_return,
     correlation,
+    downside_deviation,
     information_ratio,
     max_drawdown,
     sharpe_ratio,
@@ -63,6 +64,8 @@ class MetricSummary:
     annual_turnover: float
     num_trades: int
     composite_score: float
+    sharpe_valid: bool
+    sortino_valid: bool
 
 
 @dataclass(frozen=True)
@@ -117,6 +120,8 @@ def _metric_summary(returns: list[float], turnovers: list[float]) -> MetricSumma
     annual_return = annualized_return(returns)
     sharpe = sharpe_ratio(returns)
     sortino = sortino_ratio(returns)
+    volatility = annualized_volatility(returns)
+    downside = downside_deviation(returns)
     drawdown = max_drawdown(returns)
     annual_turnover = (
         sum(turnovers) / len(turnovers) * TRADING_DAYS_PER_YEAR if turnovers else 0.0
@@ -124,7 +129,7 @@ def _metric_summary(returns: list[float], turnovers: list[float]) -> MetricSumma
     return MetricSummary(
         total_return=compound_return(returns),
         annual_return=annual_return,
-        annual_volatility=annualized_volatility(returns),
+        annual_volatility=volatility,
         sharpe=sharpe,
         sortino=sortino,
         max_drawdown=drawdown,
@@ -137,6 +142,8 @@ def _metric_summary(returns: list[float], turnovers: list[float]) -> MetricSumma
             max_drawdown_value=drawdown,
             annual_turnover=annual_turnover,
         ),
+        sharpe_valid=volatility > 0.0,
+        sortino_valid=downside > 0.0,
     )
 
 
@@ -324,6 +331,12 @@ def result_to_dict(
         "start_date": result.start_date,
         "end_date": result.end_date,
         "evaluation_mode": "research",
+        "metric_conventions": {
+            "trading_days_per_year": TRADING_DAYS_PER_YEAR,
+            "risk_free_daily": 0.0,
+            "ratio_return": "arithmetic_daily_excess",
+            "zero_denominator": "ratio_zero_with_validity_flag_false",
+        },
         "windows": {
             "development_end": str(DEVELOPMENT_END),
             "validation_end": str(VALIDATION_END),

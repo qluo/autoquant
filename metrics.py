@@ -39,19 +39,37 @@ def annualized_volatility(returns: list[float]) -> float:
     return stddev(returns) * math.sqrt(TRADING_DAYS_PER_YEAR)
 
 
-def sharpe_ratio(returns: list[float]) -> float:
+def annualized_excess_return(
+    returns: list[float], risk_free_daily: float = 0.0
+) -> float:
+    if not returns:
+        return 0.0
+    return mean([value - risk_free_daily for value in returns]) * TRADING_DAYS_PER_YEAR
+
+
+def downside_deviation(
+    returns: list[float], risk_free_daily: float = 0.0
+) -> float:
+    if not returns:
+        return 0.0
+    downside_squared = [
+        min(value - risk_free_daily, 0.0) ** 2 for value in returns
+    ]
+    return math.sqrt(mean(downside_squared)) * math.sqrt(TRADING_DAYS_PER_YEAR)
+
+
+def sharpe_ratio(returns: list[float], risk_free_daily: float = 0.0) -> float:
     volatility = annualized_volatility(returns)
     if volatility == 0.0:
         return 0.0
-    return annualized_return(returns) / volatility
+    return annualized_excess_return(returns, risk_free_daily) / volatility
 
 
-def sortino_ratio(returns: list[float]) -> float:
-    downside = [min(value, 0.0) for value in returns]
-    downside_deviation = stddev(downside) * math.sqrt(TRADING_DAYS_PER_YEAR)
-    if downside_deviation == 0.0:
+def sortino_ratio(returns: list[float], risk_free_daily: float = 0.0) -> float:
+    deviation = downside_deviation(returns, risk_free_daily)
+    if deviation == 0.0:
         return 0.0
-    return annualized_return(returns) / downside_deviation
+    return annualized_excess_return(returns, risk_free_daily) / deviation
 
 
 def correlation(left: list[float], right: list[float]) -> float:

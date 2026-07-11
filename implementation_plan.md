@@ -724,14 +724,13 @@ Require approval before:
 
 ## Remaining Build Order
 
-1. Update Sharpe and Sortino to use arithmetic daily excess returns, 252-day annualization, zero-denominator diagnostics, and an explicit zero-rate research assumption.
-2. Add the pinned three-month Treasury-bill proxy and cash accrual before the first locked-holdout evaluation.
-3. Containerize strategy execution with no network, read-only trusted/dev-validation mounts, no holdout/history mount, and fixed resource limits.
-4. Enforce one holdout candidate per batch and three lifetime looks per locked period; record each look as a separate event.
-5. Move the ledger to append-only SQLite when promotion/holdout events are added, while retaining immutable JSON/patch files and TSV export.
-6. Add and pin the SPY/IWM/EFA/EEM confirmation panel and TLT/GLD stress panel.
-7. Add property tests for missing-session policy and short evaluation windows.
-8. Run and record the baseline in a clean research checkout so its integrity block is clean.
+1. Add the pinned three-month Treasury-bill proxy and cash accrual before the first locked-holdout evaluation.
+2. Containerize strategy execution with no network, read-only trusted/dev-validation mounts, no holdout/history mount, and fixed resource limits.
+3. Enforce one holdout candidate per batch and three lifetime looks per locked period; record each look as a separate event.
+4. Move the ledger to append-only SQLite when promotion/holdout events are added, while retaining immutable JSON/patch files and TSV export.
+5. Add and pin the SPY/IWM/EFA/EEM confirmation panel and TLT/GLD stress panel.
+6. Add property tests for missing-session policy and short evaluation windows.
+7. Run and record the baseline in a clean research checkout so its integrity block is clean.
 
 ## Decisions
 
