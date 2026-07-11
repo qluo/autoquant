@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 
 
 TRADING_DAYS_PER_YEAR = 252
@@ -39,33 +40,50 @@ def annualized_volatility(returns: list[float]) -> float:
     return stddev(returns) * math.sqrt(TRADING_DAYS_PER_YEAR)
 
 
-def annualized_excess_return(
-    returns: list[float], risk_free_daily: float = 0.0
+def _excess_returns(
+    returns: list[float], risk_free_daily: float | Sequence[float] = 0.0
 ) -> float:
-    if not returns:
-        return 0.0
-    return mean([value - risk_free_daily for value in returns]) * TRADING_DAYS_PER_YEAR
+    if isinstance(risk_free_daily, Sequence) and not isinstance(
+        risk_free_daily, (str, bytes)
+    ):
+        if len(risk_free_daily) != len(returns):
+            raise ValueError("risk-free and return series must have the same length")
+        return [
+            value - risk_free
+            for value, risk_free in zip(returns, risk_free_daily, strict=True)
+        ]
+    return [value - risk_free_daily for value in returns]
+
+
+def annualized_excess_return(
+    returns: list[float], risk_free_daily: float | Sequence[float] = 0.0
+) -> float:
+    excess = _excess_returns(returns, risk_free_daily)
+    return mean(excess) * TRADING_DAYS_PER_YEAR
 
 
 def downside_deviation(
-    returns: list[float], risk_free_daily: float = 0.0
+    returns: list[float], risk_free_daily: float | Sequence[float] = 0.0
 ) -> float:
-    if not returns:
-        return 0.0
+    excess = _excess_returns(returns, risk_free_daily)
     downside_squared = [
-        min(value - risk_free_daily, 0.0) ** 2 for value in returns
+        min(value, 0.0) ** 2 for value in excess
     ]
     return math.sqrt(mean(downside_squared)) * math.sqrt(TRADING_DAYS_PER_YEAR)
 
 
-def sharpe_ratio(returns: list[float], risk_free_daily: float = 0.0) -> float:
+def sharpe_ratio(
+    returns: list[float], risk_free_daily: float | Sequence[float] = 0.0
+) -> float:
     volatility = annualized_volatility(returns)
     if volatility == 0.0:
         return 0.0
     return annualized_excess_return(returns, risk_free_daily) / volatility
 
 
-def sortino_ratio(returns: list[float], risk_free_daily: float = 0.0) -> float:
+def sortino_ratio(
+    returns: list[float], risk_free_daily: float | Sequence[float] = 0.0
+) -> float:
     deviation = downside_deviation(returns, risk_free_daily)
     if deviation == 0.0:
         return 0.0

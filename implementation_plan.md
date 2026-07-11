@@ -69,6 +69,7 @@ autoquant/
     test_metrics.py
     test_backtest.py
     test_evaluation.py
+    test_data.py
     test_no_lookahead.py
 ```
 
@@ -724,7 +725,7 @@ Require approval before:
 
 ## Remaining Build Order
 
-1. Add the pinned three-month Treasury-bill proxy and cash accrual before the first locked-holdout evaluation.
+1. Select and approve the exact three-month Treasury-bill data provider and pin its CSV; the loader and cash accrual are implemented, with an explicit zero-rate fallback until that file is supplied.
 2. Containerize strategy execution with no network, read-only trusted/dev-validation mounts, no holdout/history mount, and fixed resource limits.
 3. Enforce one holdout candidate per batch and three lifetime looks per locked period; record each look as a separate event.
 4. Move the ledger to append-only SQLite when promotion/holdout events are added, while retaining immutable JSON/patch files and TSV export.

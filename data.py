@@ -5,6 +5,7 @@ import csv
 import datetime as dt
 import hashlib
 import json
+import math
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_TICKER = "QQQ"
 DEFAULT_CSV = DATA_DIR / "qqq.csv"
+RISK_FREE_CSV = DATA_DIR / "risk_free_3m.csv"
 START_DATE = dt.date(2010, 1, 1)
 END_DATE = dt.date(2026, 7, 10)
 YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
@@ -147,6 +149,51 @@ def load_bars(path: Path = DEFAULT_CSV) -> list[Bar]:
 
     bars.sort(key=lambda bar: bar.date)
     return bars
+
+
+def load_risk_free_daily(
+    bars: list[Bar], path: Path = RISK_FREE_CSV
+) -> tuple[list[float], dict[str, object]]:
+    """Return one daily cash return per bar, using the latest known T-bill rate."""
+    if not path.exists():
+        return [0.0] * len(bars), {
+            "source": "zero_rate_fallback",
+            "path": str(path),
+            "annualized_rate_column": "AnnualizedRatePercent",
+        }
+
+    rates: dict[dt.date, float] = {}
+    with path.open(newline="") as file:
+        reader = csv.DictReader(file)
+        required = {"Date", "AnnualizedRatePercent"}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"{path} is missing columns: {sorted(missing)}")
+        for row in reader:
+            date = dt.date.fromisoformat(row["Date"])
+            annual_rate = float(row["AnnualizedRatePercent"]) / 100.0
+            if not math.isfinite(annual_rate) or annual_rate < 0.0:
+                raise ValueError(f"{path} has an invalid rate on {date}")
+            rates[date] = (1.0 + annual_rate) ** (1.0 / 252.0) - 1.0
+
+    if not rates:
+        raise ValueError(f"{path} contains no risk-free observations")
+    ordered_dates = sorted(rates)
+    daily_returns: list[float] = []
+    cursor = 0
+    current_rate = 0.0
+    for bar in bars:
+        while cursor < len(ordered_dates) and ordered_dates[cursor] <= bar.date:
+            current_rate = rates[ordered_dates[cursor]]
+            cursor += 1
+        daily_returns.append(current_rate)
+
+    return daily_returns, {
+        "source": "pinned_local_treasury_bill_csv",
+        "path": str(path),
+        "annualized_rate_column": "AnnualizedRatePercent",
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
 
 
 def main() -> None:

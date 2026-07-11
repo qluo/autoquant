@@ -13,7 +13,15 @@ from config import (
     VALIDATION_END,
     VALIDATION_FOLDS,
 )
-from data import DEFAULT_CSV, DEFAULT_TICKER, Bar, load_bars, metadata_path
+from data import (
+    DEFAULT_CSV,
+    DEFAULT_TICKER,
+    RISK_FREE_CSV,
+    Bar,
+    load_bars,
+    load_risk_free_daily,
+    metadata_path,
+)
 from metrics import (
     TRADING_DAYS_PER_YEAR,
     annualized_return,
@@ -47,6 +55,7 @@ TRUSTED_FILES = (
     "pyproject.toml",
     "tests/test_backtest.py",
     "tests/test_evaluation.py",
+    "tests/test_data.py",
     "tests/test_metrics.py",
     "tests/test_no_lookahead.py",
     "uv.lock",
@@ -84,6 +93,7 @@ class BacktestResult:
     annual_metrics: dict[str, dict[str, float]]
     validation_folds: dict[str, dict[str, float]]
     cost_scenarios: dict[str, dict[str, float]]
+    risk_free: dict[str, object]
     start_date: str
     end_date: str
     num_bars: int
@@ -93,9 +103,14 @@ def _daily_strategy_returns(
     bars: list[Bar],
     signals: list[float],
     transaction_cost_bps: float,
+    risk_free_daily: list[float] | None = None,
 ) -> tuple[list[float], list[float], list[float]]:
     # signal[t] fills at close[t+1] and starts earning after that close.
     positions = [0.0, 0.0] + signals[:-2]
+    if risk_free_daily is None:
+        risk_free_daily = [0.0] * len(bars)
+    if len(risk_free_daily) != len(bars):
+        raise ValueError("risk-free and bar series must have the same length")
     returns: list[float] = []
     turnovers: list[float] = []
     effective_positions: list[float] = []
@@ -105,10 +120,11 @@ def _daily_strategy_returns(
         adjusted_return = (
             bars[index].adjusted_close / bars[index - 1].adjusted_close - 1.0
         )
+        cash_return = risk_free_daily[index]
         position = positions[index]
         turnover = abs(position - previous_position)
         cost = turnover * transaction_cost_bps / 10_000.0
-        returns.append(position * adjusted_return - cost)
+        returns.append(position * adjusted_return + (1.0 - position) * cash_return - cost)
         turnovers.append(turnover)
         effective_positions.append(position)
         previous_position = position
@@ -116,10 +132,18 @@ def _daily_strategy_returns(
     return returns, turnovers, effective_positions
 
 
-def _metric_summary(returns: list[float], turnovers: list[float]) -> MetricSummary:
+def _metric_summary(
+    returns: list[float],
+    turnovers: list[float],
+    risk_free_returns: list[float] | None = None,
+) -> MetricSummary:
+    if risk_free_returns is None:
+        risk_free_returns = [0.0] * len(returns)
+    if len(risk_free_returns) != len(returns):
+        raise ValueError("risk-free and return series must have the same length")
     annual_return = annualized_return(returns)
-    sharpe = sharpe_ratio(returns)
-    sortino = sortino_ratio(returns)
+    sharpe = sharpe_ratio(returns, risk_free_returns)
+    sortino = sortino_ratio(returns, risk_free_returns)
     volatility = annualized_volatility(returns)
     downside = downside_deviation(returns)
     drawdown = max_drawdown(returns)
@@ -163,8 +187,9 @@ def run_backtest(
     signals = generate_signals(research_bars)
     validate_signals(signals, research_bars)
     validate_strategy_causality(generate_signals, research_bars, signals)
+    risk_free_daily, risk_free_metadata = load_risk_free_daily(research_bars)
     returns, turnovers, positions = _daily_strategy_returns(
-        research_bars, signals, transaction_cost_bps
+        research_bars, signals, transaction_cost_bps, risk_free_daily
     )
 
     return_dates = [bar.date for bar in research_bars[1:]]
@@ -181,9 +206,10 @@ def run_backtest(
 
     validation_returns = _select(returns, validation_indices)
     validation_turnovers = _select(turnovers, validation_indices)
+    interval_risk_free = risk_free_daily[1:]
     benchmark_signals = [1.0] * len(research_bars)
     benchmark_returns, benchmark_turnovers, _ = _daily_strategy_returns(
-        research_bars, benchmark_signals, transaction_cost_bps
+        research_bars, benchmark_signals, transaction_cost_bps, risk_free_daily
     )
     validation_benchmark_returns = _select(benchmark_returns, validation_indices)
     validation_benchmark_turnovers = _select(benchmark_turnovers, validation_indices)
@@ -191,11 +217,12 @@ def run_backtest(
     cost_scenarios: dict[str, dict[str, float]] = {}
     for cost_bps in PROMOTION_COST_SCENARIOS_BPS:
         scenario_returns, scenario_turnovers, _ = _daily_strategy_returns(
-            research_bars, signals, cost_bps
+            research_bars, signals, cost_bps, risk_free_daily
         )
         scenario = _metric_summary(
             _select(scenario_returns, validation_indices),
             _select(scenario_turnovers, validation_indices),
+            _select(interval_risk_free, validation_indices),
         )
         cost_scenarios[f"{cost_bps:g}_bps"] = {
             "annual_return": scenario.annual_return,
@@ -210,7 +237,9 @@ def run_backtest(
             index for index in validation_indices if return_dates[index].year == year
         ]
         year_summary = _metric_summary(
-            _select(returns, year_indices), _select(turnovers, year_indices)
+            _select(returns, year_indices),
+            _select(turnovers, year_indices),
+            _select(interval_risk_free, year_indices),
         )
         year_positions = _select(positions, year_indices)
         annual_metrics[str(year)] = {
@@ -231,7 +260,9 @@ def run_backtest(
         if not fold_indices:
             continue
         fold_summary = _metric_summary(
-            _select(returns, fold_indices), _select(turnovers, fold_indices)
+            _select(returns, fold_indices),
+            _select(turnovers, fold_indices),
+            _select(interval_risk_free, fold_indices),
         )
         validation_folds[f"{fold_start}_{fold_end}"] = {
             "annual_return": fold_summary.annual_return,
@@ -241,14 +272,21 @@ def run_backtest(
         }
 
     return BacktestResult(
-        full=_metric_summary(returns, turnovers),
+        full=_metric_summary(returns, turnovers, interval_risk_free),
         development=_metric_summary(
             _select(returns, development_indices),
             _select(turnovers, development_indices),
+            _select(interval_risk_free, development_indices),
         ),
-        validation=_metric_summary(validation_returns, validation_turnovers),
+        validation=_metric_summary(
+            validation_returns,
+            validation_turnovers,
+            _select(interval_risk_free, validation_indices),
+        ),
         benchmark=_metric_summary(
-            validation_benchmark_returns, validation_benchmark_turnovers
+            validation_benchmark_returns,
+            validation_benchmark_turnovers,
+            _select(interval_risk_free, validation_indices),
         ),
         excess_annual_return=(
             annualized_return(validation_returns)
@@ -276,6 +314,7 @@ def run_backtest(
         annual_metrics=annual_metrics,
         validation_folds=validation_folds,
         cost_scenarios=cost_scenarios,
+        risk_free=risk_free_metadata,
         start_date=str(research_bars[0].date),
         end_date=str(research_bars[-1].date),
         num_bars=len(research_bars),
@@ -377,6 +416,7 @@ def result_to_dict(
             "correlation": result.correlation,
         },
         "cost_scenarios": result.cost_scenarios,
+        "risk_free": result.risk_free,
     }
 
 

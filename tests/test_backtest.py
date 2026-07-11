@@ -51,6 +51,18 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(sum(no_cost_returns), 0.0)
         self.assertLess(sum(cost_returns), 0.0)
 
+    def test_cash_accrues_risk_free_return(self) -> None:
+        bars = make_bars([100.0, 100.0, 100.0])
+        returns, _, _ = _daily_strategy_returns(
+            bars=bars,
+            signals=[0.0, 0.0, 0.0],
+            transaction_cost_bps=0.0,
+            risk_free_daily=[0.0, 0.01, 0.01],
+        )
+
+        self.assertAlmostEqual(returns[0], 0.01)
+        self.assertAlmostEqual(returns[1], 0.01)
+
     def test_returns_use_adjusted_close(self) -> None:
         bars = make_bars([100.0, 110.0, 90.0])
         bars[2] = Bar(
@@ -100,6 +112,7 @@ class BacktestTests(unittest.TestCase):
             annual_metrics={"2021": {"total_return": 0.1}},
             validation_folds={"2020-01-01_2021-12-31": {"sharpe": 0.4}},
             cost_scenarios={"2_bps": {"composite_score": 0.12}},
+            risk_free={"source": "zero_rate_fallback"},
             start_date="2010-01-04",
             end_date="2021-12-31",
             num_bars=100,

@@ -14,7 +14,7 @@ from backtest import (
     changed_files,
 )
 from config import DEFAULT_TRANSACTION_COST_BPS, HOLDOUT_START
-from data import DEFAULT_CSV, Bar, load_bars
+from data import DEFAULT_CSV, Bar, load_bars, load_risk_free_daily
 from strategy import generate_signals
 from validate import validate_bars, validate_signals, validate_strategy_causality
 
@@ -30,8 +30,9 @@ def evaluate_locked_holdout(
     signals = generate_signals(bars)
     validate_signals(signals, bars)
     validate_strategy_causality(generate_signals, bars, signals)
+    risk_free_daily, risk_free_metadata = load_risk_free_daily(bars)
     returns, turnovers, _ = _daily_strategy_returns(
-        bars, signals, transaction_cost_bps
+        bars, signals, transaction_cost_bps, risk_free_daily
     )
     return_dates = [bar.date for bar in bars[1:]]
     holdout_indices = [
@@ -41,15 +42,18 @@ def evaluate_locked_holdout(
         raise ValueError(f"bars do not cover locked holdout from {HOLDOUT_START}")
 
     benchmark_returns, benchmark_turnovers, _ = _daily_strategy_returns(
-        bars, [1.0] * len(bars), transaction_cost_bps
+        bars, [1.0] * len(bars), transaction_cost_bps, risk_free_daily
     )
+    interval_risk_free = risk_free_daily[1:]
     holdout = _metric_summary(
         [returns[index] for index in holdout_indices],
         [turnovers[index] for index in holdout_indices],
+        [interval_risk_free[index] for index in holdout_indices],
     )
     benchmark = _metric_summary(
         [benchmark_returns[index] for index in holdout_indices],
         [benchmark_turnovers[index] for index in holdout_indices],
+        [interval_risk_free[index] for index in holdout_indices],
     )
     return {
         "evaluation_mode": "locked_holdout",
@@ -57,6 +61,7 @@ def evaluate_locked_holdout(
         "holdout_end": str(return_dates[holdout_indices[-1]]),
         "metrics": asdict(holdout),
         "benchmark": {"name": "buy_and_hold_QQQ", **asdict(benchmark)},
+        "risk_free": risk_free_metadata,
     }
 
 
