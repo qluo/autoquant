@@ -1,48 +1,68 @@
 # autoquant
 
-Constrained offline backtesting agent for quant research.
+Constrained offline research harness for single-asset quant experiments.
 
-Phase 1 provides a minimal single-asset harness:
+The ordinary research loop uses QQQ data through 2021 only:
 
-- Download QQQ historical OHLCV data into `data/qqq.csv`.
-- Run a fixed offline backtest.
-- Keep strategy logic isolated in `strategy.py`.
-- Print deterministic performance, risk, turnover, and composite-score metrics.
+- 2010-2017 development window.
+- 2018-2021 validation window.
+- 2022 onward locked holdout, evaluated only with explicit human approval.
+
+Returns and signals use adjusted close so splits and distributions are reflected
+in the daily total-return series. A signal computed after `close[t]` fills at
+`close[t+1]` and begins earning the following close-to-close return.
 
 ## Setup
 
 ```bash
 uv sync
-```
-
-## Download Sample Data
-
-```bash
 uv run python data.py --download
 ```
 
-The first sample dataset is QQQ daily data from 2010-01-01 through 2026-07-10.
+The downloaded CSV is a local, pinned input. Each result records its SHA-256
+hash; replacing it starts a different research dataset.
 
-To download another ticker:
-
-```bash
-uv run python data.py --download --ticker SPY
-```
-
-This writes to `data/spy.csv`. You can also pass `--output path/to/file.csv`.
-
-## Run Baseline Backtest
+## Run Research Backtest
 
 ```bash
 uv run python backtest.py
 ```
 
-The baseline strategy is a simple moving-average trend filter. It emits same-day signals, and `backtest.py` shifts positions by one trading day so execution only uses already-observed data.
+The command runs causality and validation checks, then writes
+`runs/latest_result.json`. The result includes development and validation
+metrics, buy-and-hold comparison, exposure, annual results, cost sensitivity,
+and code/data integrity hashes. It deliberately excludes locked-holdout results.
 
-The backtest reports full-period metrics plus a fixed out-of-sample window starting on 2020-01-01.
+## Record An Attempt
 
-## Run Tests
+Record every attempt before reverting its strategy patch:
+
+```bash
+uv run python record_result.py manual_review "baseline"
+uv run python record_result.py discarded "hypothesis and rejection reason"
+uv run python record_result.py invalid "validation failure"
+uv run python record_result.py crashed "runtime failure"
+```
+
+The append-only ledger is `results.tsv`; exact result JSON and strategy patches
+are retained under `runs/`.
+
+## Locked Holdout
+
+Only a human should run this for a frozen candidate in a clean worktree:
+
+```bash
+uv run python evaluation.py --candidate <run_id> --approve-locked-holdout
+```
+
+Locked results are written separately under `runs/locked/` and are not copied
+to the agent-visible latest result.
+
+## Tests
 
 ```bash
 uv run python -m unittest discover -s tests
 ```
+
+Arbitrary Python strategy code is not an OS security boundary. Run autonomous
+experiments in a container or worker with no network and read-only trusted files.

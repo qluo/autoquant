@@ -9,6 +9,7 @@ venv/
 
 # Local experiment outputs
 data/
+runs/
 results.tsv
 run.log
 *.log
@@ -22,3 +23,6 @@ run.log
 .DS_Store
 .idea/
 .vscode/
+
+# Comments
+implementation_plan_comments.md

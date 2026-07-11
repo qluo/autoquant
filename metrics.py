@@ -54,6 +54,66 @@ def sortino_ratio(returns: list[float]) -> float:
     return annualized_return(returns) / downside_deviation
 
 
+def correlation(left: list[float], right: list[float]) -> float:
+    if len(left) != len(right):
+        raise ValueError("return series must have the same length")
+    if len(left) < 2:
+        return 0.0
+    left_std = stddev(left)
+    right_std = stddev(right)
+    if left_std == 0.0 or right_std == 0.0:
+        return 0.0
+    covariance = sum(
+        (left_value - mean(left)) * (right_value - mean(right))
+        for left_value, right_value in zip(left, right, strict=True)
+    ) / (len(left) - 1)
+    return covariance / (left_std * right_std)
+
+
+def beta(strategy_returns: list[float], benchmark_returns: list[float]) -> float:
+    if len(strategy_returns) != len(benchmark_returns):
+        raise ValueError("return series must have the same length")
+    benchmark_variance = stddev(benchmark_returns) ** 2
+    if len(strategy_returns) < 2 or benchmark_variance == 0.0:
+        return 0.0
+    strategy_mean = mean(strategy_returns)
+    benchmark_mean = mean(benchmark_returns)
+    covariance = sum(
+        (strategy - strategy_mean) * (benchmark - benchmark_mean)
+        for strategy, benchmark in zip(
+            strategy_returns, benchmark_returns, strict=True
+        )
+    ) / (len(strategy_returns) - 1)
+    return covariance / benchmark_variance
+
+
+def tracking_error(strategy_returns: list[float], benchmark_returns: list[float]) -> float:
+    if len(strategy_returns) != len(benchmark_returns):
+        raise ValueError("return series must have the same length")
+    active_returns = [
+        strategy - benchmark
+        for strategy, benchmark in zip(
+            strategy_returns, benchmark_returns, strict=True
+        )
+    ]
+    return annualized_volatility(active_returns)
+
+
+def information_ratio(
+    strategy_returns: list[float], benchmark_returns: list[float]
+) -> float:
+    error = tracking_error(strategy_returns, benchmark_returns)
+    if error == 0.0:
+        return 0.0
+    active_returns = [
+        strategy - benchmark
+        for strategy, benchmark in zip(
+            strategy_returns, benchmark_returns, strict=True
+        )
+    ]
+    return annualized_return(active_returns) / error
+
+
 def max_drawdown(returns: list[float]) -> float:
     equity = 1.0
     peak = 1.0

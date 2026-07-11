@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import hashlib
 import json
 import time
 import urllib.request
@@ -27,11 +28,16 @@ class Bar:
     high: float
     low: float
     close: float
+    adjusted_close: float
     volume: int
 
 
 def ticker_csv_path(ticker: str) -> Path:
     return DATA_DIR / f"{ticker.lower()}.csv"
+
+
+def metadata_path(path: Path) -> Path:
+    return path.with_suffix(path.suffix + ".meta.json")
 
 
 def download_bars(
@@ -88,6 +94,20 @@ def download_bars(
                 ]
             )
 
+    metadata = {
+        "ticker": symbol,
+        "source": YAHOO_CHART_URL,
+        "retrieved_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "requested_start_date": str(start_date),
+        "requested_end_date": str(end_date),
+        "calendar": "provider_trading_sessions",
+        "adjustment": "Yahoo Finance adjusted close",
+        "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+    }
+    metadata_path(output_path).write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n"
+    )
+
     return output_path
 
 
@@ -104,7 +124,7 @@ def load_bars(path: Path = DEFAULT_CSV) -> list[Bar]:
     bars: list[Bar] = []
     with path.open(newline="") as file:
         reader = csv.DictReader(file)
-        required = {"Date", "Open", "High", "Low", "Close", "Volume"}
+        required = {"Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"}
         missing = required - set(reader.fieldnames or [])
         if missing:
             raise ValueError(f"{path} is missing columns: {sorted(missing)}")
@@ -117,6 +137,7 @@ def load_bars(path: Path = DEFAULT_CSV) -> list[Bar]:
                     high=float(row["High"]),
                     low=float(row["Low"]),
                     close=float(row["Close"]),
+                    adjusted_close=float(row["Adj Close"]),
                     volume=int(float(row["Volume"])),
                 )
             )

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a constrained offline backtesting agent for quant research.
+Build a constrained offline backtesting agent for exploratory quant research.
 
 The agent should help generate, run, compare, and remember trading-strategy experiments, but it must not trade live, access brokers, or modify the trusted backtest/evaluation harness.
 
@@ -14,10 +14,14 @@ research idea
 -> human approval
 -> edit constrained strategy file
 -> run standardized offline backtest
--> compare against baseline
--> keep/discard
+-> evaluate against development and validation evidence
+-> promote/discard
 -> log experiment memory
 ```
+
+The agent is a research assistant, not the final judge of a strategy. A strategy
+may be promoted only through a separately controlled evaluation process; it may
+not be declared robust merely because it maximizes a visible backtest score.
 
 ## Design Principles
 
@@ -36,6 +40,15 @@ research idea
 5. Human approval gates.
    A human approves experiment plans and any expansion of data access, compute budget, or evaluation scope.
 
+6. Selection integrity.
+   The agent may iterate on development and validation data, but it must not
+   repeatedly select strategies using the locked final holdout. Every attempt,
+   including rejected attempts, is retained for audit.
+
+7. Verifiable boundaries.
+   Trusted evaluator code, configuration, data, and experiment records are
+   protected or verified mechanically; instructions alone are not a boundary.
+
 ## Proposed Directory Structure
 
 ```text
@@ -50,21 +63,26 @@ autoquant/
   metrics.py
   validate.py
   results.tsv
+  evaluation.py
+  config.py
   tests/
     test_metrics.py
     test_backtest.py
+    test_evaluation.py
     test_no_lookahead.py
 ```
 
 Initial file roles:
 
 - `program.md`: instructions for the research agent.
-- `data.py`: fixed data loading, cleaning, and train/test split logic.
+- `data.py`: fixed data loading, cleaning, and evaluation-dataset selection.
 - `backtest.py`: fixed backtest harness and portfolio simulation.
 - `metrics.py`: fixed performance and risk metrics.
 - `validate.py`: fixed validation checks for leakage, dates, costs, and outputs.
+- `evaluation.py`: trusted promotion and locked-holdout workflow.
+- `config.py`: trusted evaluation windows, cost scenarios, and policy limits.
 - `strategy.py`: the only file the agent edits during experiments.
-- `results.tsv`: local experiment log, likely untracked by git.
+- `results.tsv`: append-only experiment ledger written by trusted tooling.
 
 ## Technical Design
 
@@ -86,7 +104,8 @@ The command should:
 4. Validate strategy output.
 5. Shift signals into next-bar positions.
 6. Apply transaction costs.
-7. Compute full-period and out-of-sample metrics.
+7. Compute full-period, development, and validation metrics; emit locked-holdout
+   metrics only in the separately authorized evaluation mode.
 8. Print a human-readable summary.
 9. Write machine-readable output for the agent.
 
@@ -99,10 +118,15 @@ data.py
 backtest.py
 metrics.py
 validate.py
+evaluation.py
+config.py
 tests/
 ```
 
-These files define the evaluation contract. The research agent should not edit them during autonomous experiments.
+These files define the evaluation contract. During autonomous experiments they
+are mounted read-only (or run from a clean, trusted checkout) and their hashes
+are recorded with every result. The acceptance command rejects any unexpected
+change outside `strategy.py` and approved generated artifacts.
 
 Editable research file:
 
@@ -112,7 +136,7 @@ strategy.py
 
 The agent can edit this file to test strategy ideas. It must return one target exposure per input bar.
 
-Local generated files:
+Generated artifacts:
 
 ```text
 data/
@@ -121,7 +145,10 @@ results.tsv
 run.log
 ```
 
-These files are local artifacts and should not be required for source-code review.
+`runs/` may contain machine-readable results, logs, and saved candidate patches.
+`results.tsv` is append-only and must record discarded, invalid, and crashed
+attempts as well as promoted candidates. Generated artifacts are retained for
+audit even when a candidate patch is reverted.
 
 ### Data Contract
 
@@ -136,10 +163,19 @@ The initial dataset is QQQ daily data. Additional tickers can be downloaded with
 `data.Bar` is the in-memory representation of one daily OHLCV row:
 
 ```text
-date, open, high, low, close, volume
+date, open, high, low, close, adjusted_close, volume
 ```
 
-The backtest currently uses `close` for daily close-to-close returns. `Adj Close` is retained in CSV for future use but is not part of the Phase 1/2 `Bar` object.
+For the initial daily ETF model, portfolio returns and benchmark returns use
+`adjusted_close`, which represents a split- and distribution-adjusted
+total-return series. Raw OHLC remains available for data quality checks and for
+future execution models. A future execution model that uses raw fills must
+model distributions and corporate actions explicitly; adjusted close is not a
+literal executable fill price.
+
+Every run records the data source, retrieval timestamp, ticker, date range,
+calendar, adjustment convention, row count, missing-session policy, and SHA-256
+hash of the exact input file.
 
 ### Strategy Contract
 
@@ -161,6 +197,12 @@ Rules:
 - Same-day signals are executed on the next bar by `backtest.py`.
 
 This contract lets the agent research strategy logic without controlling execution mechanics.
+During autonomous runs, `strategy.py` is treated as untrusted code. It runs in
+a container without network access, cannot write outside its temporary run
+directory, cannot read experiment results or locked data, and is limited to
+approved imports and fixed compute limits. A restricted strategy DSL or
+approved causal feature library is deferred until the containerized workflow
+reveals which primitives are worth supporting.
 
 ### Backtest Contract
 
@@ -170,14 +212,29 @@ This contract lets the agent research strategy logic without controlling executi
 - Next-bar execution.
 - Long-only exposure for the initial version.
 - Transaction cost charged on absolute position change.
-- Fixed in-sample/out-of-sample split.
+- Fixed development, validation, and locked-holdout policy.
 - Standard metric calculation.
 
 The agent should treat this file as read-only during experiments.
 
+The initial daily event timeline is deliberately conservative:
+
+```text
+after close[t]:       observe data through adjusted_close[t] and compute signal[t]
+before close[t + 1]:  submit the already-computed target order
+at close[t + 1]:      apply the position change and transaction cost
+close[t + 1]..[t + 2]: the new position earns the next close-to-close return
+```
+
+Thus a signal never earns the return whose close was used to calculate it. The
+implementation and tests must use this timeline exactly. Any later open-price,
+MOC/LOC, or intraday model is a separate, explicitly approved execution model.
+
 ### Metric Contract
 
-Primary evaluation is based on out-of-sample composite score.
+Development ranking uses a composite score, but promotion is not based on one
+number alone. A candidate must first satisfy validation, integrity, robustness,
+and benchmark-relative constraints.
 
 Supporting metrics:
 
@@ -189,31 +246,56 @@ Supporting metrics:
 - Max drawdown.
 - Annual turnover.
 - Number of trades.
-- In-sample composite score.
-- Out-of-sample composite score.
-- Out-of-sample Sharpe.
-- Out-of-sample max drawdown.
+- Development and validation composite scores.
+- Development and validation Sharpe and max drawdown.
+- Locked-holdout metrics, emitted only by the human-triggered evaluator.
+- Buy-and-hold benchmark metrics.
+- Excess annual return, tracking error, information ratio, beta, and correlation.
+- Average exposure, percent of days invested, and annual/subperiod metrics.
 
-The composite score is intentionally simple at first. It rewards risk-adjusted return and penalizes drawdown and excessive turnover.
+Metric conventions:
+
+- Use 252 trading days per year.
+- Compute Sharpe from the arithmetic mean of daily excess returns divided by
+  their sample standard deviation, annualized by `sqrt(252)`.
+- Compute Sortino from the arithmetic mean of daily excess returns divided by
+  downside deviation, annualized by `sqrt(252)`.
+- Use a zero risk-free rate for the current development/validation harness and
+  label that assumption in every result.
+- If volatility or downside deviation is zero, report the corresponding ratio
+  as `0.0` and emit a diagnostic flag; never emit NaN or infinity into ranking.
+- Before the first locked-holdout evaluation, add a pinned daily three-month
+  Treasury-bill proxy, accrue it to cash exposure, and use the same series for
+  excess-return metrics. Adding this series requires human data-source approval.
+
+The composite score is intentionally simple at first. It is a development
+ranking aid, not evidence of a deployable edge. Its inputs and components must
+be emitted separately, and ranking sensitivity to reasonable weight changes
+must be checked before a promotion decision.
 
 ### Agent Loop Design
 
-The Phase 3 research loop should work like this:
+The exploratory research loop should work like this:
 
 ```text
-1. Read program.md and latest experiment memory.
-2. Inspect current baseline metrics.
-3. Propose one strategy hypothesis.
-4. Edit only strategy.py.
-5. Run uv run python backtest.py.
-6. Read runs/latest_result.json.
-7. Compare primary score and guardrail metrics to baseline.
-8. Commit successful changes.
-9. Revert unsuccessful changes.
-10. Append attempt to results.tsv.
+1. Read program.md and the append-only experiment ledger.
+2. Inspect development/validation baselines and the current champion.
+3. Propose one falsifiable strategy hypothesis.
+4. Edit only strategy.py in the research worktree.
+5. Run the development/validation backtest in the restricted runner.
+6. The trusted runner checks hashes, changed-file allowlist, causal behavior,
+   validation rules, benchmarks, and required cost scenarios.
+7. The trusted recorder saves metrics and the candidate patch, then appends the
+   attempt to results.tsv before any revert decision.
+8. Promote only candidates that meet the stated challenger criteria; otherwise
+   discard the working-tree change while retaining the audit artifact.
+9. Request a human-triggered locked-holdout evaluation only for a candidate
+   that already passed development and validation gates.
 ```
 
-The agent is allowed to continue iterating only inside this loop.
+The agent is allowed to continue iterating only inside this loop and only up to
+the configured attempt and wall-clock budget. It receives no locked-holdout
+metrics during ordinary iteration.
 
 ### Output Design
 
@@ -241,38 +323,84 @@ Expected JSON shape:
 {
   "ticker": "QQQ",
   "start_date": "2010-01-04",
-  "end_date": "2026-07-10",
-  "split_date": "2020-01-01",
+  "end_date": "2021-12-31",
+  "evaluation_mode": "research",
+  "windows": {
+    "development_end": "2017-12-31",
+    "validation_end": "2021-12-31"
+  },
+  "data": {
+    "sha256": "...",
+    "adjustment": "adjusted_close_total_return"
+  },
+  "integrity": {
+    "strategy_sha256": "...",
+    "harness_sha256": "...",
+    "changed_files": ["strategy.py"],
+    "trusted_files_clean": true,
+    "prefix_invariance_passed": true
+  },
   "metrics": {
-    "total_return": 0.0,
+    "development": {"composite_score": 0.0, "sharpe": 0.0},
+    "validation": {
+      "annual_return": 0.0,
+      "sharpe": 0.0,
+      "max_drawdown": 0.0,
+      "annual_turnover": 0.0,
+      "num_trades": 0,
+      "composite_score": 0.0
+    },
+    "average_exposure": 0.0,
+    "annual": {},
+    "validation_folds": {}
+  },
+  "benchmark": {
+    "name": "buy_and_hold_QQQ",
     "annual_return": 0.0,
-    "annual_volatility": 0.0,
     "sharpe": 0.0,
-    "sortino": 0.0,
-    "max_drawdown": 0.0,
-    "annual_turnover": 0.0,
-    "num_trades": 0,
-    "composite_score": 0.0,
-    "is_score": 0.0,
-    "oos_score": 0.0,
-    "oos_sharpe": 0.0,
-    "oos_max_drawdown": 0.0
+    "max_drawdown": 0.0
+  },
+  "relative_metrics": {
+    "excess_annual_return": 0.0,
+    "information_ratio": 0.0,
+    "beta": 0.0,
+    "correlation": 0.0
+  },
+  "cost_scenarios": {
+    "2_bps": {"composite_score": 0.0},
+    "5_bps": {"composite_score": 0.0},
+    "10_bps": {"composite_score": 0.0}
   }
 }
 ```
 
 ### Safety Model
 
-The system is safe by construction only if the agent cannot change the evaluator while experimenting.
+The system has two distinct safety goals:
+
+1. Operational safety: it cannot trade, access a broker, or alter the trusted
+   evaluation environment while experimenting.
+2. Research safety: it cannot silently use future data, repeatedly optimize on
+   a final holdout, or hide failed attempts.
 
 Safety controls:
 
-- Keep evaluator files read-only by instruction and review.
+- Run trusted evaluation from a clean checkout or read-only mount; hash trusted
+  files, configuration, dependencies, and data before each run.
+- Reject an experiment if its changed-file list is not an allowlist containing
+  only `strategy.py` and approved generated artifacts.
+- Execute strategy code in a container with no network, fixed CPU/memory/time
+  limits, read-only trusted code and development/validation data, a temporary
+  writable run directory, and no mount containing `results.tsv`, prior runs, or
+  holdout data. A separate human-controlled container performs locked evaluation.
+- Save every candidate patch and append its result before a revert or promotion.
 - Reject invalid bars and strategy outputs.
+- Test prefix invariance: changing or appending future bars must not change any
+  signal produced for an earlier prefix.
 - Use next-bar execution.
-- Use fixed split dates.
-- Apply transaction costs.
-- Require tests to pass before accepting harness changes.
+- Use visible development/validation windows and a separate locked holdout.
+- Apply transaction costs and rerun promotion candidates under cost stress.
+- Require the full trusted test suite to pass before accepting a promotion.
 - Require human approval for new data sources, dependencies, or live-trading capabilities.
 
 ### Extension Points
@@ -280,7 +408,6 @@ Safety controls:
 Future extensions should be added behind explicit contracts:
 
 - Multi-ticker data loader.
-- Adjusted-close return mode.
 - Short exposure support.
 - Volatility targeting.
 - Portfolio construction.
@@ -291,7 +418,9 @@ Live trading is out of scope unless explicitly approved in a future design phase
 
 ## Phase 1: Minimal Offline Harness
 
-Status: complete.
+Status: complete for the local research harness. Adjusted-close total returns,
+the conservative execution timeline, benchmark reporting, and data hashing are
+implemented.
 
 Build a small, deterministic local backtesting harness.
 
@@ -299,16 +428,17 @@ Scope:
 
 - Download QQQ historical OHLCV data and save it as a bundled sample CSV.
 - Support a single-asset strategy workflow first.
-- Implement a baseline strategy in `strategy.py`.
+- Implement a baseline strategy in `strategy.py` and a buy-and-hold benchmark.
 - Run one backtest from the command line.
 - Print standardized metrics.
 
-Implemented choices:
+Required design choices:
 
 - QQQ sample date range: 2010-01-01 through 2026-07-10.
 - Data source: Yahoo Finance chart API, normalized into `data/qqq.csv`.
 - Baseline strategy: 50-day and 200-day moving-average trend filter.
-- Execution model: same-day signal, next-day position.
+- Return model: adjusted-close total return for the initial daily ETF model.
+- Execution model: close[t] observation, close[t+1] fill, then next interval P&L.
 - Default transaction cost: 2 bps per unit of turnover.
 - Composite score:
   `0.45 * sharpe + 0.25 * sortino + annual_return - 1.25 * abs(max_drawdown) - 0.03 * min(annual_turnover, 10)`.
@@ -339,23 +469,28 @@ Success criteria:
 - Metrics are deterministic across repeated runs.
 - Strategy logic is isolated in `strategy.py`.
 - The evaluator can run a baseline strategy end to end.
+- Buy-and-hold QQQ is reported on the same return series and costs convention.
 
 ## Phase 2: Evaluation Guardrails
 
-Status: complete.
+Status: complete for application-level research checks. OS-level isolation of
+arbitrary strategy Python remains a deployment requirement before unattended
+autonomous execution.
 
 Add checks that make invalid experiments fail loudly.
 
 Required checks:
 
 - Signal timestamps must not use future prices or returns.
+- Prefix-invariance checks must fail a strategy whose earlier signals change
+  when future observations are perturbed or appended.
 - Positions must be shifted so trades occur after signal observation.
 - Missing data behavior must be explicit.
 - Transaction costs and slippage must be applied.
 - Strategy output must satisfy position and leverage limits.
-- Evaluation must separate in-sample and out-of-sample periods.
+- Evaluation must separate development, validation, and locked holdout periods.
 
-Implemented checks:
+Existing checks:
 
 - Bars must be strictly increasing by date.
 - OHLC values must be finite and positive.
@@ -363,24 +498,56 @@ Implemented checks:
 - Strategy signals must match the bar count.
 - Strategy signals must be finite.
 - Strategy signals must stay within `[0.0, 1.0]`.
-- Positions are shifted by one bar before returns are calculated.
+- Signals are delayed through the documented next-close fill before returns are earned.
 - Transaction costs are charged on turnover.
-- Full-period, in-sample, and out-of-sample composite scores are reported.
+- Development, validation, annual, rolling-fold, benchmark-relative, exposure,
+  and cost-scenario results are reported.
+- The ordinary backtest truncates input at validation end and emits no holdout metrics.
+- Trusted code and data hashes plus the changed-file set are emitted with each run.
+- Prefix invariance is checked during every backtest.
 
-Fixed evaluation split:
+Remaining hardening:
+
+- Implement the chosen container boundary with no network, read-only trusted
+  files, fixed resources, and no access to holdout data or experiment history.
+- Add broader property tests for missing-session policy and short evaluation windows.
+- Revisit an approved causal feature library or DSL only after the containerized
+  workflow provides evidence that the additional restriction is worth its cost.
+
+Evaluation policy:
 
 ```text
-in-sample:     dates before 2020-01-01
-out-of-sample: dates on or after 2020-01-01
+development:       2010-01-01 through 2017-12-31; visible to the agent
+validation:        2018-01-01 through 2021-12-31; visible only as standard metrics
+locked holdout:    2022-01-01 onward; inaccessible to the ordinary agent loop
+
+rolling validation: additional fixed historical folds are used for promotion.
 ```
+
+The precise windows live in trusted `config.py`. They may change only with
+human approval and only before an experiment batch begins. A strategy running
+in ordinary agent mode receives no locked-holdout bars or outputs. Locked
+evaluation is human-triggered and writes to a separate result path. Automated
+enforcement allows at most one candidate per 20-attempt batch and three total
+looks at the same locked period. A candidate may not be modified and rerun in
+response to its holdout result. Detailed results remain human-only; the research
+process receives at most a pass/fail decision. After three looks, retire that
+period as a final holdout and rely on newly accumulated forward data.
 
 Success criteria:
 
-- Tests catch at least one intentional lookahead example.
+- Tests catch intentional lookahead examples and prefix-invariance violations.
 - Backtest fails if strategy output has invalid dates, NaNs, or excessive leverage.
 - Costs materially affect turnover-heavy strategies.
+- All-cash, buy-and-hold, zero-volatility, duplicate-date, short-window, and
+  missing-session edge cases have deterministic, documented behavior.
 
 ## Phase 3: Agent Experiment Loop
+
+Status: complete for a human-supervised local research loop. The agent program
+uses fixed attempt/time budgets, material challenger thresholds, full-vector
+review, append-only logging, and separate human-triggered holdout evaluation.
+Results remain exploratory until OS-level isolation and human promotion review.
 
 Create `program.md` for an autonomous-but-constrained research loop.
 
@@ -389,9 +556,7 @@ The agent may:
 - Edit `strategy.py`.
 - Run the fixed backtest command.
 - Read standardized metrics from structured output.
-- Commit candidate changes.
-- Record results in `results.tsv`.
-- Keep changes only when they improve the selected objective without violating guardrails.
+- Propose a promotion after a candidate meets every required gate.
 
 The agent may not:
 
@@ -400,16 +565,19 @@ The agent may not:
 - Disable costs, slippage, or risk checks.
 - Add broker, exchange, or live-trading integrations.
 - Install new dependencies without human approval.
+- Read locked-holdout data or results during ordinary iteration.
+- Modify, delete, or backfill `results.tsv`, run artifacts, or candidate patches.
 
 Primary objective:
 
 ```text
-maximize a composite out-of-sample score that rewards:
-- risk-adjusted return
-- controlled drawdown
-- reasonable turnover
-- positive absolute return
-- stable behavior across evaluation windows
+produce a candidate that passes development and validation constraints, then
+improves the current champion by a material margin on a transparent ranking:
+- benchmark-relative risk-adjusted return
+- controlled drawdown and exposure
+- reasonable turnover after costs
+- stable performance across validation folds and subperiods
+- an economically plausible, causal rule
 
 subject to:
 - leverage within configured limit
@@ -418,12 +586,15 @@ subject to:
 
 Success criteria:
 
-- First run records the baseline.
-- Each experiment records commit, metrics, status, and short description.
+- First run records cash, buy-and-hold QQQ, and the baseline strategy.
+- Each experiment records attempt number, strategy hash, candidate patch,
+  metrics, costs, configuration/data/harness hashes, status, and hypothesis.
 - Each backtest writes `runs/latest_result.json` for agent parsing.
 - Human-readable stdout remains available for quick inspection.
-- Failed or worse experiments are discarded.
-- Improved experiments remain on the branch.
+- Failed, worse, invalid, and crashed experiments remain auditable after the
+  working-tree strategy is discarded.
+- Improved candidates remain on a research branch only after passing the
+  challenger criteria; a human reviews promotion to main.
 
 Structured output:
 
@@ -446,8 +617,29 @@ results.tsv
 Purpose:
 
 - Append-only local summary of attempted experiments.
-- Includes commit, primary score, status, and short description.
+- Includes attempt number, before/after commit, strategy and harness hashes,
+  status, hypothesis, full-metrics artifact path, and short decision reason.
 - Remains separate from `latest_result.json`, which is overwritten each run.
+
+Implemented commands:
+
+```bash
+uv run python backtest.py
+uv run python record_result.py manual_review "hypothesis and result"
+uv run python record_result.py discarded "hypothesis and rejection reason"
+uv run python evaluation.py --candidate <run_id> --approve-locked-holdout
+```
+
+The agent may invoke the append-only recorder but may not edit the ledger or
+artifacts. A locked-holdout command requires an explicit approval flag and a
+clean trusted worktree; it writes separately under `runs/locked/` and never to
+the ordinary agent-visible result file.
+
+Implemented agent instruction file:
+
+```text
+program.md
+```
 
 ## Phase 4: Research Memory
 
@@ -455,31 +647,39 @@ Move beyond `results.tsv` once the loop is useful.
 
 Track:
 
+- Monotonic attempt number and timestamp.
 - Hypothesis.
 - Strategy family.
 - Universe.
-- Data version.
-- Train/test dates.
-- Costs model.
-- Code commit.
+- Data, configuration, strategy, and trusted-harness hashes.
+- Development, validation, and locked-holdout policy identifiers.
+- Cost scenarios, benchmark metrics, exposure diagnostics, and subperiod metrics.
+- Git commit before/after, changed-file list, and saved candidate patch path.
 - Full metric set.
-- Keep/discard decision.
+- Status: promoted, discarded, invalid, crashed, or manual review.
 - Reason the idea likely worked or failed.
+- Human approval identifier for a locked evaluation or promotion.
 
 Possible storage:
 
-- Start with `results.tsv`.
-- Move to SQLite when structured querying becomes useful.
+- Keep `results.tsv` for the current single-writer exploratory loop.
+- Continue storing immutable result JSON and patch artifacts as files addressed
+  by path and hash.
+- Move the ledger to an append-only SQLite event schema when the first of these
+  occurs: promotion/holdout events are implemented, the ledger reaches 100
+  attempts, or more than one process needs to write.
+- Retain TSV as a human-readable export after SQLite becomes authoritative.
 
 Success criteria:
 
 - The agent can avoid repeating previously failed ideas.
 - The human can inspect experiment history quickly.
 - Results are reproducible from logged metadata.
+- Failed attempts and the number of trials before selection are auditable.
 
 ## Phase 5: Strategy Research Expansion
 
-After the basic loop is reliable, add controlled strategy families.
+After the promotion pipeline is reliable, add controlled strategy families.
 
 Candidate research areas:
 
@@ -492,6 +692,18 @@ Candidate research areas:
 - Portfolio construction and risk constraints.
 
 Each expansion should add tests and validation before giving the agent access to it.
+Before claiming robustness, evaluate the exact frozen strategy and parameters
+on an out-of-universe panel that was never used for tuning:
+
+- Core confirmation panel: SPY, IWM, EFA, and EEM.
+- Cross-asset stress panel: TLT and GLD.
+
+The candidate need not outperform on every instrument. Promotion requires
+credible median behavior across the comparable equity panel, no catastrophic
+failure, no dependence on QQQ alone, and an economic explanation for where the
+strategy should or should not transfer. TLT and GLD are stress tests unless the
+strategy hypothesis explicitly claims cross-asset applicability. Adding and
+pinning these datasets requires human approval.
 
 ## Human Approval Gates
 
@@ -500,35 +712,59 @@ Require approval before:
 - Adding new data sources.
 - Changing the evaluation objective.
 - Changing transaction cost or slippage assumptions.
-- Changing train/test date splits.
+- Changing development, validation, rolling-fold, or locked-holdout policy.
+- Resetting the lifetime holdout-look counter or reusing a retired holdout.
 - Increasing compute budget.
 - Adding dependencies.
+- Loosening strategy sandbox, import, filesystem, or network restrictions.
+- Changing the risk-free series or metric annualization convention.
+- Changing the core or stress robustness panel after seeing its results.
+- Running a locked-holdout evaluation or promoting a research-branch candidate.
 - Introducing any live-trading, broker, or order-management feature.
 
-## Initial Build Order
+## Remaining Build Order
 
-1. Create minimal package files and CLI entry point.
-2. Implement deterministic sample data generation.
-3. Implement baseline strategy.
-4. Implement backtest engine with shifted execution.
-5. Implement metrics.
-6. Add validation checks.
-7. Add focused tests.
-8. Write `program.md` for the constrained agent loop.
-9. Run baseline and record first result.
+1. Update Sharpe and Sortino to use arithmetic daily excess returns, 252-day annualization, zero-denominator diagnostics, and an explicit zero-rate research assumption.
+2. Add the pinned three-month Treasury-bill proxy and cash accrual before the first locked-holdout evaluation.
+3. Containerize strategy execution with no network, read-only trusted/dev-validation mounts, no holdout/history mount, and fixed resource limits.
+4. Enforce one holdout candidate per batch and three lifetime looks per locked period; record each look as a separate event.
+5. Move the ledger to append-only SQLite when promotion/holdout events are added, while retaining immutable JSON/patch files and TSV export.
+6. Add and pin the SPY/IWM/EFA/EEM confirmation panel and TLT/GLD stress panel.
+7. Add property tests for missing-session policy and short evaluation windows.
+8. Run and record the baseline in a clean research checkout so its integrity block is clean.
 
-## Open Decisions
+## Decisions
 
-Resolved initial decisions:
+Resolved decisions:
 
 - Data source: download QQQ historical data as the first bundled sample CSV.
 - Project setup: use `uv` to stay consistent with `autoresearch`.
 - Strategy scope: start with single-asset strategies.
-- Objective: use a composite score across sensible performance, risk, turnover, and stability metrics.
+- Return convention: adjusted-close total return for the initial daily ETF model.
+- Research protocol: visible development/validation, human-triggered locked holdout, and fixed rolling-validation folds.
+- Objective: satisfy hard validity and robustness constraints, then use a transparent composite ranking rather than a single-score promotion rule.
+- Autonomous budget: at most 20 attempts or 60 minutes per batch.
+- Challenger threshold: at least 5% validation-score improvement and 0.10 Sharpe improvement, subject to drawdown, cost, annual-stability, and benchmark-relative guardrails.
+- Cost scenarios: 2, 5, and 10 bps.
+- Rolling folds: fixed two-year windows from 2014 through 2021.
+- Metric convention: 252-day annualization using arithmetic daily excess
+  returns; zero risk-free rate during development, followed by a pinned daily
+  three-month Treasury-bill proxy before locked evaluation; zero denominators
+  report `0.0` plus a diagnostic flag.
+- Strategy isolation: use a resource-limited, network-disabled container with
+  read-only trusted and development/validation mounts; keep holdout data and
+  experiment history outside the container. Defer a strategy DSL.
+- Holdout budget: at most one candidate per 20-attempt batch and three lifetime
+  evaluations of the same locked period, with no result-driven rerun.
+- Robustness panel: SPY/IWM/EFA/EEM for confirmation and TLT/GLD for stress,
+  always using frozen strategy code and parameters.
+- Experiment storage: retain TSV for the current loop; move to append-only
+  SQLite when promotion/holdout events arrive, at 100 attempts, or when multiple
+  writers are needed. Keep immutable JSON/patch artifacts and TSV export.
 
 Remaining implementation details:
 
-- Choose the historical QQQ date range.
-- Choose the data source for the initial CSV download.
-- Define the exact composite score formula.
-- Define default transaction cost and slippage assumptions.
+- Select and approve the exact Treasury-bill and robustness-panel data provider.
+- Choose the available container runtime and encode its mount/resource policy.
+- Define the human-only holdout pass/fail thresholds before the first lookup.
+- Define the append-only SQLite event schema and migration/export procedure.

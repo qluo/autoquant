@@ -22,7 +22,7 @@ def _simple_moving_average(values: list[float], window: int) -> list[float | Non
 
 def generate_signals(bars: list[Bar]) -> list[float]:
     """Return target exposure for each bar, from 0.0 cash to 1.0 long."""
-    closes = [bar.close for bar in bars]
+    closes = [bar.adjusted_close for bar in bars]
     sma_50 = _simple_moving_average(closes, 50)
     sma_200 = _simple_moving_average(closes, 200)
 
