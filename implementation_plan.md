@@ -688,6 +688,10 @@ Success criteria:
 
 ## Phase 5: Strategy Research Expansion
 
+Status: in progress. The first controlled family is causal trailing-return
+momentum, exposed as `generate_momentum_signals` while the trend baseline remains
+the default research strategy.
+
 After the promotion pipeline is reliable, add controlled strategy families.
 
 Candidate research areas:

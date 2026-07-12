@@ -67,6 +67,7 @@ TRUSTED_FILES = (
     "tests/test_memory.py",
     "tests/test_metrics.py",
     "tests/test_no_lookahead.py",
+    "tests/test_strategy.py",
     "uv.lock",
 )
 

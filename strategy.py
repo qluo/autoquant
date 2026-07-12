@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from data import Bar
 
+MOMENTUM_LOOKBACK = 126
+
 
 def _simple_moving_average(values: list[float], window: int) -> list[float | None]:
     averages: list[float | None] = []
@@ -35,4 +37,21 @@ def generate_signals(bars: list[Bar]) -> list[float]:
         else:
             signals.append(0.0)
 
+    return signals
+
+
+def generate_momentum_signals(
+    bars: list[Bar], lookback: int = MOMENTUM_LOOKBACK
+) -> list[float]:
+    """Return long exposure when trailing total return is positive."""
+    if lookback < 1:
+        raise ValueError("lookback must be positive")
+
+    closes = [bar.adjusted_close for bar in bars]
+    signals: list[float] = []
+    for index, close in enumerate(closes):
+        if index < lookback:
+            signals.append(0.0)
+        else:
+            signals.append(float(close > closes[index - lookback]))
     return signals
