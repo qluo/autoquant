@@ -3,6 +3,7 @@ from __future__ import annotations
 from data import Bar
 
 MOMENTUM_LOOKBACK = 126
+MEAN_REVERSION_LOOKBACK = 20
 STRATEGY_FAMILY = "trend"
 
 
@@ -46,6 +47,8 @@ def generate_signals(bars: list[Bar]) -> list[float]:
         return _generate_trend_signals(bars)
     if STRATEGY_FAMILY == "momentum":
         return generate_momentum_signals(bars)
+    if STRATEGY_FAMILY == "mean_reversion":
+        return generate_mean_reversion_signals(bars)
     raise ValueError(f"unknown strategy family: {STRATEGY_FAMILY}")
 
 
@@ -64,3 +67,18 @@ def generate_momentum_signals(
         else:
             signals.append(float(close > closes[index - lookback]))
     return signals
+
+
+def generate_mean_reversion_signals(
+    bars: list[Bar], lookback: int = MEAN_REVERSION_LOOKBACK
+) -> list[float]:
+    """Return long exposure when price is below its trailing average."""
+    if lookback < 1:
+        raise ValueError("lookback must be positive")
+
+    closes = [bar.adjusted_close for bar in bars]
+    averages = _simple_moving_average(closes, lookback)
+    return [
+        0.0 if average is None else float(close < average)
+        for close, average in zip(closes, averages, strict=True)
+    ]

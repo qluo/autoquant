@@ -4,7 +4,7 @@ import datetime as dt
 import unittest
 
 from data import Bar
-from strategy import generate_momentum_signals, generate_signals
+from strategy import generate_mean_reversion_signals, generate_momentum_signals, generate_signals
 
 
 def make_bars(values: list[float]) -> list[Bar]:
@@ -34,6 +34,11 @@ class MomentumStrategyTests(unittest.TestCase):
 
     def test_default_strategy_remains_trend(self) -> None:
         self.assertEqual(generate_signals(make_bars([100.0, 101.0])), [0.0, 0.0])
+
+    def test_mean_reversion_uses_trailing_average(self) -> None:
+        signals = generate_mean_reversion_signals(make_bars([100.0, 110.0, 90.0]), 2)
+
+        self.assertEqual(signals, [0.0, 0.0, 1.0])
 
 
 if __name__ == "__main__":
