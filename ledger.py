@@ -187,3 +187,48 @@ def export_attempts_tsv(path: Path = LEDGER_DB, output: Path = RESULTS_TSV) -> P
                 }
             )
     return output
+
+
+def read_events(
+    *,
+    event_type: str | None = None,
+    candidate_id: str | None = None,
+    path: Path = LEDGER_DB,
+) -> list[dict[str, Any]]:
+    query = (
+        "SELECT id, created_at_utc, event_type, batch_id, candidate_id, holdout_id, "
+        "payload_json FROM events"
+    )
+    clauses: list[str] = []
+    values: list[str] = []
+    if event_type is not None:
+        clauses.append("event_type = ?")
+        values.append(event_type)
+    if candidate_id is not None:
+        clauses.append("candidate_id = ?")
+        values.append(candidate_id)
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
+    query += " ORDER BY id"
+    with _connection(path) as connection:
+        rows = connection.execute(query, values).fetchall()
+    return [
+        {
+            "id": event_id,
+            "created_at_utc": created_at,
+            "event_type": row_event_type,
+            "batch_id": batch_id,
+            "candidate_id": row_candidate_id,
+            "holdout_id": holdout_id,
+            "payload": json.loads(payload_json),
+        }
+        for (
+            event_id,
+            created_at,
+            row_event_type,
+            batch_id,
+            row_candidate_id,
+            holdout_id,
+            payload_json,
+        ) in rows
+    ]

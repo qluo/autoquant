@@ -31,7 +31,14 @@ def _artifact_stem(strategy_sha256: str) -> str:
     return f"{timestamp}-{strategy_sha256[:12]}"
 
 
-def append_result(status: str, hypothesis: str, batch_id: str) -> int:
+def append_result(
+    status: str,
+    hypothesis: str,
+    batch_id: str,
+    strategy_family: str,
+    parent_candidate: str | None,
+    reason: str,
+) -> int:
     strategy_sha256 = _sha256(Path("strategy.py"))
     payload = (
         json.loads(LATEST_RESULT_JSON.read_text())
@@ -56,6 +63,11 @@ def append_result(status: str, hypothesis: str, batch_id: str) -> int:
         "hypothesis": hypothesis,
         "strategy_sha256": strategy_sha256,
         "commit": _git("rev-parse", "--short", "HEAD").strip(),
+        "strategy_family": strategy_family,
+        "universe": "QQQ",
+        "parent_candidate": parent_candidate,
+        "reason": reason,
+        "config_sha256": _sha256(Path("config.py")),
         "patch_path": str(patch_path),
     }
     if payload:
@@ -89,9 +101,19 @@ def main() -> None:
     )
     parser.add_argument("hypothesis")
     parser.add_argument("--batch-id", default="default")
+    parser.add_argument("--strategy-family", default="unspecified")
+    parser.add_argument("--parent-candidate")
+    parser.add_argument("--reason", default="")
     args = parser.parse_args()
 
-    event_id = append_result(args.status, args.hypothesis, args.batch_id)
+    event_id = append_result(
+        args.status,
+        args.hypothesis,
+        args.batch_id,
+        args.strategy_family,
+        args.parent_candidate,
+        args.reason,
+    )
     print(f"recorded attempt event {event_id}")
 
 

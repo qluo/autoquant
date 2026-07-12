@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 import sqlite3
 
-from ledger import count_events, export_attempts_tsv, reserve_holdout_lookup
+from ledger import append_event, count_events, export_attempts_tsv, read_events, reserve_holdout_lookup
 
 
 class LedgerTests(unittest.TestCase):
@@ -77,3 +77,14 @@ class LedgerTests(unittest.TestCase):
             with sqlite3.connect(database) as connection:
                 with self.assertRaisesRegex(sqlite3.IntegrityError, "append-only"):
                     connection.execute("DELETE FROM events WHERE id = ?", (event_id,))
+
+    def test_read_events_returns_decoded_payloads(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "ledger.sqlite"
+            append_event(
+                "attempt", {"strategy_family": "trend"}, candidate_id="candidate", path=database
+            )
+
+            events = read_events(candidate_id="candidate", path=database)
+
+        self.assertEqual(events[0]["payload"]["strategy_family"], "trend")

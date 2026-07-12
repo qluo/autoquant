@@ -42,6 +42,12 @@ uv run python robustness.py --candidate <strategy_sha256>
 SQLite at `runs/experiments.sqlite` is the append-only event ledger. `results.tsv`
 is a derived export; candidate patches and result JSON are immutable artifacts.
 
+```bash
+uv run python memory.py summary
+uv run python memory.py search --strategy-family trend
+uv run python memory.py candidate <strategy_sha256>
+```
+
 ## Locked Evaluation and Promotion
 
 These commands are human-only and require a clean trusted worktree:

@@ -15,7 +15,8 @@ optimize a single score in isolation.
 2. Run `uv run python -m unittest discover -s tests`.
 3. Build the local runner image with `docker build -t autoquant-research:latest .`.
 4. Run `uv run python sandbox_runner.py` and record the baseline with a batch ID.
-5. Stop after 20 attempts or 60 minutes, whichever comes first.
+5. Read `uv run python memory.py summary` and avoid already-rejected families.
+6. Stop after 20 attempts or 60 minutes, whichever comes first.
 
 ## File Boundary
 
@@ -29,6 +30,7 @@ or run artifacts.
 For each attempt:
 
 1. State one falsifiable economic hypothesis. Do not hard-code market dates.
+   Check `uv run python memory.py search --strategy-family <family>` first.
 2. Make one focused change to `strategy.py`.
 3. Run `uv run python -m unittest discover -s tests`.
 4. Run `uv run python sandbox_runner.py`.

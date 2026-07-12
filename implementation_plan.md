@@ -652,8 +652,9 @@ program.md
 
 ## Phase 4: Research Memory
 
-Status: SQLite event ledger implemented for Phase 1-3 attempts, promotions, and
-holdout lookups. Future work can add richer querying and strategy genealogy.
+Status: complete. SQLite events record attempts, promotions, and holdout
+lookups; `memory.py` provides read-only summaries, strategy-family searches,
+and candidate/descendant history.
 
 Track:
 
@@ -669,6 +670,7 @@ Track:
 - Status: promoted, discarded, invalid, crashed, or manual review.
 - Reason the idea likely worked or failed.
 - Human approval identifier for a locked evaluation or promotion.
+- Parent candidate, strategy family, and rejection/promotion reason.
 
 Possible storage:
 
@@ -682,6 +684,7 @@ Success criteria:
 - The human can inspect experiment history quickly.
 - Results are reproducible from logged metadata.
 - Failed attempts and the number of trials before selection are auditable.
+- Candidate ancestry and related promotion/holdout events are queryable.
 
 ## Phase 5: Strategy Research Expansion
 
