@@ -775,3 +775,21 @@ Resolved decisions:
   artifacts remain files addressed by path and hash; TSV is an export.
 - Human holdout thresholds: positive annual excess return, no more than 0.02
   additional maximum drawdown versus the benchmark, and valid risk ratios.
+
+## Code Review findings
+
+1. **P0 — Frozen-candidate integrity is not enforced.** Both locked evaluation and robustness reporting run the current `strategy.py`, while `--candidate` is only a label. A strategy can be changed after its recorded result and evaluated/reported as the prior candidate. This invalidates Phase 3/5 promotion evidence. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:117), [robustness.py](/Users/ddev/Documents/Projects/autoquant/robustness.py:14)
+
+2. **P0 — The sandbox does not protect the trusted evaluator.** `sandbox_runner.py` stages whatever trusted files are in the working tree; a modified `backtest.py`/`config.py` is therefore executed. Inside the staging directory `git status` fails, so the result reports trusted files clean. Use a verified clean checkout or compare against approved hashes before staging. [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:37), [backtest.py](/Users/ddev/Documents/Projects/autoquant/backtest.py:359)
+
+3. **P1 — Locked-holdout budget is consumed after releasing the result.** The holdout JSON is written before `reserve_holdout_lookup()`. A second same-batch request fails the reservation but has already produced a detailed locked result, defeating the one-lookup constraint. Reserve atomically before evaluation/output, or write only to inaccessible temporary storage until reservation succeeds. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:117)
+
+4. **P1 — Sharpe and information-ratio conventions are incorrect.** Sharpe divides excess return by volatility of raw returns, not daily excess returns as specified. Information ratio compounds daily active returns, which are not a self-financing return series; it should use annualized arithmetic mean active return divided by tracking error. [metrics.py](/Users/ddev/Documents/Projects/autoquant/metrics.py:75), [metrics.py](/Users/ddev/Documents/Projects/autoquant/metrics.py:138)
+
+5. **P1 — The stated experiment/time and human-approval gates are procedural only.** No code enforces the 20-attempt/60-minute budget or sandbox timeout; `promotion` accepts any candidate ID and arbitrary approval text without verifying candidate artifacts, gates, or human authority. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:34), [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:82), [promote_candidate.py](/Users/ddev/Documents/Projects/autoquant/promote_candidate.py:8)
+
+6. **P2 — Candidate artifacts are not reliably reproducible.** Recording stores `git diff strategy.py`; a committed strategy yields an empty patch, and neither the complete strategy source nor artifact hashes are retained. Store immutable source snapshots keyed by strategy SHA-256. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:55)
+
+Phase 5’s momentum and mean-reversion rules are causal and correctly delayed by the execution model. The main gap is governance: selected family/parameters are still mutable code, so the robustness claim is not tied to a frozen implementation.
+
+Verification: `uv run python -m unittest discover -s tests` passes (32 tests). The suite does not cover the findings above, so I would not describe Phases 3–4 as complete until the P0/P1 controls are fixed.
