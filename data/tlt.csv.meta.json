@@ -1,0 +1,10 @@
+{
+  "adjustment": "Yahoo Finance adjusted close",
+  "calendar": "provider_trading_sessions",
+  "requested_end_date": "2026-07-10",
+  "requested_start_date": "2010-01-01",
+  "retrieved_at_utc": "2026-07-12T00:11:51.378552+00:00",
+  "sha256": "c990b3d41a01f1671be45f9a99989130cb3f672f4b79b50b8a8e02cef7e07490",
+  "source": "https://query1.finance.yahoo.com/v8/finance/chart",
+  "ticker": "TLT"
+}

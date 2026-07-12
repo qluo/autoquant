@@ -1,0 +1,10 @@
+{
+  "adjustment": "Yahoo Finance adjusted close",
+  "calendar": "provider_trading_sessions",
+  "requested_end_date": "2026-07-10",
+  "requested_start_date": "2010-01-01",
+  "retrieved_at_utc": "2026-07-12T00:11:27.208865+00:00",
+  "sha256": "b28c4de6a89b3ec095247c98d2cf1d8c1c728a37375984d166e8b688018f147d",
+  "source": "https://query1.finance.yahoo.com/v8/finance/chart",
+  "ticker": "SPY"
+}

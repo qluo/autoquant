@@ -33,6 +33,7 @@ class LockedEvaluationTests(unittest.TestCase):
         self.assertEqual(payload["holdout_start"], "2022-01-01")
         self.assertIn("metrics", payload)
         self.assertIn("benchmark", payload)
+        self.assertIn("human_review", payload)
 
     def test_locked_evaluation_requires_holdout_bars(self) -> None:
         with self.assertRaisesRegex(ValueError, "do not cover locked holdout"):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from dataclasses import asdict
@@ -13,8 +14,17 @@ from backtest import (
     _metric_summary,
     changed_files,
 )
-from config import DEFAULT_TRANSACTION_COST_BPS, HOLDOUT_START
+from config import (
+    DEFAULT_TRANSACTION_COST_BPS,
+    HOLDOUT_ID,
+    HOLDOUT_MAX_DRAWDOWN_WORSENING,
+    HOLDOUT_MIN_EXCESS_ANNUAL_RETURN,
+    HOLDOUT_START,
+    MAX_HOLDOUT_LOOKUPS,
+    MAX_HOLDOUT_LOOKUPS_PER_BATCH,
+)
 from data import DEFAULT_CSV, Bar, load_bars, load_risk_free_daily
+from ledger import reserve_holdout_lookup
 from strategy import generate_signals
 from validate import validate_bars, validate_signals, validate_strategy_causality
 
@@ -55,6 +65,14 @@ def evaluate_locked_holdout(
         [benchmark_turnovers[index] for index in holdout_indices],
         [interval_risk_free[index] for index in holdout_indices],
     )
+    excess_annual_return = holdout.annual_return - benchmark.annual_return
+    drawdown_worsening = abs(holdout.max_drawdown) - abs(benchmark.max_drawdown)
+    passes = (
+        excess_annual_return > HOLDOUT_MIN_EXCESS_ANNUAL_RETURN
+        and drawdown_worsening <= HOLDOUT_MAX_DRAWDOWN_WORSENING
+        and holdout.sharpe_valid
+        and holdout.sortino_valid
+    )
     return {
         "evaluation_mode": "locked_holdout",
         "holdout_start": str(HOLDOUT_START),
@@ -62,12 +80,21 @@ def evaluate_locked_holdout(
         "metrics": asdict(holdout),
         "benchmark": {"name": "buy_and_hold_QQQ", **asdict(benchmark)},
         "risk_free": risk_free_metadata,
+        "human_review": {
+            "passes_thresholds": passes,
+            "excess_annual_return": excess_annual_return,
+            "drawdown_worsening": drawdown_worsening,
+            "minimum_excess_annual_return": HOLDOUT_MIN_EXCESS_ANNUAL_RETURN,
+            "maximum_drawdown_worsening": HOLDOUT_MAX_DRAWDOWN_WORSENING,
+        },
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", required=True)
+    parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--approval-id", required=True)
     parser.add_argument("--approve-locked-holdout", action="store_true")
     args = parser.parse_args()
 
@@ -91,7 +118,19 @@ def main() -> None:
     LOCKED_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     output = LOCKED_RESULTS_DIR / f"{args.candidate}.json"
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    print(f"wrote locked evaluation to {output}")
+    event_id = reserve_holdout_lookup(
+        holdout_id=HOLDOUT_ID,
+        batch_id=args.batch_id,
+        candidate_id=args.candidate,
+        payload={
+            "approval_id": args.approval_id,
+            "result_path": str(output),
+            "result_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+        },
+        max_total=MAX_HOLDOUT_LOOKUPS,
+        max_per_batch=MAX_HOLDOUT_LOOKUPS_PER_BATCH,
+    )
+    print(f"recorded human-only locked evaluation event {event_id}")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import argparse
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -44,18 +45,24 @@ from validate import validate_bars, validate_signals, validate_strategy_causalit
 RUNS_DIR = Path(__file__).resolve().parent / "runs"
 LATEST_RESULT_JSON = RUNS_DIR / "latest_result.json"
 TRUSTED_FILES = (
+    "Dockerfile",
     "backtest.py",
     "config.py",
     "data.py",
     "evaluation.py",
+    "ledger.py",
     "metrics.py",
+    "promote_candidate.py",
     "program.md",
     "record_result.py",
+    "robustness.py",
+    "sandbox_runner.py",
     "validate.py",
     "pyproject.toml",
     "tests/test_backtest.py",
     "tests/test_evaluation.py",
     "tests/test_data.py",
+    "tests/test_ledger.py",
     "tests/test_metrics.py",
     "tests/test_no_lookahead.py",
     "uv.lock",
@@ -145,7 +152,7 @@ def _metric_summary(
     sharpe = sharpe_ratio(returns, risk_free_returns)
     sortino = sortino_ratio(returns, risk_free_returns)
     volatility = annualized_volatility(returns)
-    downside = downside_deviation(returns)
+    downside = downside_deviation(returns, risk_free_returns)
     drawdown = max_drawdown(returns)
     annual_turnover = (
         sum(turnovers) / len(turnovers) * TRADING_DAYS_PER_YEAR if turnovers else 0.0
@@ -344,13 +351,17 @@ def trusted_harness_sha256(root: Path | None = None) -> str:
 
 def changed_files(root: Path | None = None) -> list[str]:
     root = root or Path(__file__).resolve().parent
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return []
+    if result.returncode != 0:
+        return []
     return sorted(line[3:] for line in result.stdout.splitlines() if line)
 
 
@@ -372,7 +383,7 @@ def result_to_dict(
         "evaluation_mode": "research",
         "metric_conventions": {
             "trading_days_per_year": TRADING_DAYS_PER_YEAR,
-            "risk_free_daily": 0.0,
+            "risk_free_return": "pinned_daily_series_or_zero_rate_fallback",
             "ratio_return": "arithmetic_daily_excess",
             "zero_denominator": "ratio_zero_with_validity_flag_false",
         },
@@ -448,10 +459,16 @@ def print_result(result: BacktestResult) -> None:
 
 
 def main() -> None:
-    bars = load_bars()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=Path, default=DEFAULT_CSV)
+    parser.add_argument("--output", type=Path, default=LATEST_RESULT_JSON)
+    parser.add_argument("--ticker", default=DEFAULT_TICKER)
+    args = parser.parse_args()
+
+    bars = load_bars(args.data)
     result = run_backtest(bars)
     print_result(result)
-    write_latest_result(result)
+    write_latest_result(result, args.output, args.ticker, args.data)
 
 
 if __name__ == "__main__":

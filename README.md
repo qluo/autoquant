@@ -1,68 +1,61 @@
 # autoquant
 
-Constrained offline research harness for single-asset quant experiments.
+Offline, constrained research harness for daily ETF strategies.
 
-The ordinary research loop uses QQQ data through 2021 only:
+Research uses QQQ through 2021 only: 2010-2017 development and 2018-2021
+validation. The 2022+ period is locked and available only to a human-controlled
+evaluator. Signals use adjusted close, fill on the following close, and earn
+returns only after that fill.
 
-- 2010-2017 development window.
-- 2018-2021 validation window.
-- 2022 onward locked holdout, evaluated only with explicit human approval.
-
-Returns and signals use adjusted close so splits and distributions are reflected
-in the daily total-return series. A signal computed after `close[t]` fills at
-`close[t+1]` and begins earning the following close-to-close return.
-
-## Setup
+## Pinned Inputs
 
 ```bash
 uv sync
 uv run python data.py --download
+uv run python data.py --download-risk-free
+uv run python data.py --download-robustness-panel
 ```
 
-The downloaded CSV is a local, pinned input. Each result records its SHA-256
-hash; replacing it starts a different research dataset.
+QQQ and the fixed SPY/IWM/EFA/EEM/TLT/GLD panel come from the project’s Yahoo
+Finance downloader. Cash accrual uses FRED `DGS3MO`, the daily three-month
+Treasury constant-maturity yield. Each local CSV is hashed and accompanied by
+provenance metadata.
 
-## Run Research Backtest
+## Sandboxed Research Run
 
 ```bash
-uv run python backtest.py
+docker build -t autoquant-research:latest .
+uv run python sandbox_runner.py
 ```
 
-The command runs causality and validation checks, then writes
-`runs/latest_result.json`. The result includes development and validation
-metrics, buy-and-hold comparison, exposure, annual results, cost sensitivity,
-and code/data integrity hashes. It deliberately excludes locked-holdout results.
+The container has no network, a read-only staged filesystem, only research
+period QQQ data, and fixed resource limits. It writes the agent-visible result
+to `runs/latest_result.json`.
 
-## Record An Attempt
-
-Record every attempt before reverting its strategy patch:
+## Ledger and Robustness
 
 ```bash
-uv run python record_result.py manual_review "baseline"
-uv run python record_result.py discarded "hypothesis and rejection reason"
-uv run python record_result.py invalid "validation failure"
-uv run python record_result.py crashed "runtime failure"
+uv run python record_result.py manual_review "baseline" --batch-id initial
+uv run python robustness.py --candidate <strategy_sha256>
 ```
 
-The append-only ledger is `results.tsv`; exact result JSON and strategy patches
-are retained under `runs/`.
+SQLite at `runs/experiments.sqlite` is the append-only event ledger. `results.tsv`
+is a derived export; candidate patches and result JSON are immutable artifacts.
 
-## Locked Holdout
+## Locked Evaluation and Promotion
 
-Only a human should run this for a frozen candidate in a clean worktree:
+These commands are human-only and require a clean trusted worktree:
 
 ```bash
-uv run python evaluation.py --candidate <run_id> --approve-locked-holdout
+uv run python evaluation.py --candidate <candidate_id> --batch-id <batch_id> --approval-id <approval_id> --approve-locked-holdout
+uv run python promote_candidate.py <candidate_id> --approval-id <approval_id> --reason "review outcome"
 ```
 
-Locked results are written separately under `runs/locked/` and are not copied
-to the agent-visible latest result.
+The evaluator enforces one lookup per batch and three lifetime looks for the
+locked period. Detailed holdout results remain outside the agent loop.
 
 ## Tests
 
 ```bash
 uv run python -m unittest discover -s tests
 ```
-
-Arbitrary Python strategy code is not an OS security boundary. Run autonomous
-experiments in a container or worker with no network and read-only trusted files.

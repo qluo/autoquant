@@ -19,6 +19,7 @@ RISK_FREE_CSV = DATA_DIR / "risk_free_3m.csv"
 START_DATE = dt.date(2010, 1, 1)
 END_DATE = dt.date(2026, 7, 10)
 YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
+FRED_DGS3MO_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3MO"
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,56 @@ def download_qqq(path: Path = DEFAULT_CSV) -> Path:
     return download_bars(DEFAULT_TICKER, path)
 
 
+def download_risk_free_series(path: Path = RISK_FREE_CSV) -> Path:
+    """Download FRED DGS3MO and normalize it into the pinned local CSV contract."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    request = urllib.request.Request(
+        FRED_DGS3MO_CSV_URL, headers={"User-Agent": "Mozilla/5.0"}
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        source_rows = list(csv.DictReader(response.read().decode().splitlines()))
+
+    with path.open("w", newline="") as file:
+        writer = csv.DictWriter(
+            file, fieldnames=["Date", "AnnualizedRatePercent"]
+        )
+        writer.writeheader()
+        for row in source_rows:
+            value = row.get("DGS3MO", "")
+            if value in {"", "."}:
+                continue
+            date = dt.date.fromisoformat(row["observation_date"])
+            if START_DATE <= date <= END_DATE:
+                writer.writerow(
+                    {"Date": date.isoformat(), "AnnualizedRatePercent": value}
+                )
+
+    metadata_path(path).write_text(
+        json.dumps(
+            {
+                "source": FRED_DGS3MO_CSV_URL,
+                "series": "DGS3MO",
+                "retrieved_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "requested_start_date": str(START_DATE),
+                "requested_end_date": str(END_DATE),
+                "units": "percent_per_annum",
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return path
+
+
+def download_robustness_panel() -> list[Path]:
+    return [
+        download_bars(ticker)
+        for ticker in ("SPY", "IWM", "EFA", "EEM", "TLT", "GLD")
+    ]
+
+
 def load_bars(path: Path = DEFAULT_CSV) -> list[Bar]:
     if not path.exists():
         raise FileNotFoundError(
@@ -199,11 +250,19 @@ def load_risk_free_daily(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--download", action="store_true")
+    parser.add_argument("--download-risk-free", action="store_true")
+    parser.add_argument("--download-robustness-panel", action="store_true")
     parser.add_argument("--ticker", default=DEFAULT_TICKER)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
-    if args.download:
+    if args.download_risk_free:
+        path = download_risk_free_series(args.output or RISK_FREE_CSV)
+        print(f"downloaded {path}")
+    elif args.download_robustness_panel:
+        for path in download_robustness_panel():
+            print(f"downloaded {path}")
+    elif args.download:
         path = download_bars(args.ticker, args.output)
         print(f"downloaded {path}")
     else:

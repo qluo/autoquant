@@ -31,6 +31,29 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "strictly increasing"):
             validate_bars(invalid)
 
+    def test_allows_provider_session_gaps(self) -> None:
+        bars = make_bars()
+        bars[1] = Bar(
+            date=dt.date(2024, 1, 5),
+            open=100.0,
+            high=101.0,
+            low=99.0,
+            close=100.0,
+            adjusted_close=100.0,
+            volume=1_000_000,
+        )
+        bars[2] = Bar(
+            date=dt.date(2024, 1, 8),
+            open=100.0,
+            high=101.0,
+            low=99.0,
+            close=100.0,
+            adjusted_close=100.0,
+            volume=1_000_000,
+        )
+
+        validate_bars(bars)
+
     def test_rejects_invalid_adjusted_close(self) -> None:
         bars = make_bars()
         bars[1] = Bar(

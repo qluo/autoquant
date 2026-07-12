@@ -3,7 +3,13 @@ from __future__ import annotations
 import datetime as dt
 import unittest
 
-from backtest import BacktestResult, MetricSummary, _daily_strategy_returns, result_to_dict
+from backtest import (
+    BacktestResult,
+    MetricSummary,
+    _daily_strategy_returns,
+    result_to_dict,
+    run_backtest,
+)
 from data import Bar
 
 
@@ -125,6 +131,10 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["validation"]["composite_score"], 0.12)
         self.assertEqual(payload["metrics"]["validation"]["num_trades"], 4)
         self.assertNotIn("holdout", payload["metrics"])
+
+    def test_rejects_insufficient_evaluation_history(self) -> None:
+        with self.assertRaisesRegex(ValueError, "research evaluation windows"):
+            run_backtest(make_bars([100.0, 101.0, 102.0]))
 
 
 if __name__ == "__main__":

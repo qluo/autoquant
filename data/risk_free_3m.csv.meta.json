@@ -1,0 +1,9 @@
+{
+  "requested_end_date": "2026-07-10",
+  "requested_start_date": "2010-01-01",
+  "retrieved_at_utc": "2026-07-11T23:04:33.732768+00:00",
+  "series": "DGS3MO",
+  "sha256": "8870f743eb8296509710237a0dcf58d63bb70fcc99cb655925c6d5177e5c4b99",
+  "source": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3MO",
+  "units": "percent_per_annum"
+}

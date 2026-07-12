@@ -56,12 +56,17 @@ autoquant/
   README.md
   implementation_plan.md
   program.md
+  Dockerfile
   pyproject.toml
   data.py
   backtest.py
   strategy.py
   metrics.py
   validate.py
+  sandbox_runner.py
+  ledger.py
+  promote_candidate.py
+  robustness.py
   results.tsv
   evaluation.py
   config.py
@@ -80,10 +85,14 @@ Initial file roles:
 - `backtest.py`: fixed backtest harness and portfolio simulation.
 - `metrics.py`: fixed performance and risk metrics.
 - `validate.py`: fixed validation checks for leakage, dates, costs, and outputs.
+- `sandbox_runner.py`: trusted Docker staging and execution wrapper.
+- `ledger.py`: append-only SQLite event ledger and TSV exporter.
+- `promote_candidate.py`: human-only promotion event recorder.
+- `robustness.py`: frozen-candidate panel evaluator.
 - `evaluation.py`: trusted promotion and locked-holdout workflow.
 - `config.py`: trusted evaluation windows, cost scenarios, and policy limits.
 - `strategy.py`: the only file the agent edits during experiments.
-- `results.tsv`: append-only experiment ledger written by trusted tooling.
+- `results.tsv`: derived human-readable export of the authoritative SQLite ledger.
 
 ## Technical Design
 
@@ -147,9 +156,9 @@ run.log
 ```
 
 `runs/` may contain machine-readable results, logs, and saved candidate patches.
-`results.tsv` is append-only and must record discarded, invalid, and crashed
-attempts as well as promoted candidates. Generated artifacts are retained for
-audit even when a candidate patch is reverted.
+The SQLite event ledger is append-only and must record discarded, invalid, and
+crashed attempts as well as promotions and holdout lookups. Generated artifacts
+are retained for audit even when a candidate patch is reverted.
 
 ### Data Contract
 
@@ -419,9 +428,9 @@ Live trading is out of scope unless explicitly approved in a future design phase
 
 ## Phase 1: Minimal Offline Harness
 
-Status: complete for the local research harness. Adjusted-close total returns,
-the conservative execution timeline, benchmark reporting, and data hashing are
-implemented.
+Status: complete. The local harness uses adjusted-close total returns, the
+conservative execution timeline, benchmark reporting, pinned FRED DGS3MO cash
+rates, and data hashing/provenance.
 
 Build a small, deterministic local backtesting harness.
 
@@ -436,7 +445,8 @@ Scope:
 Required design choices:
 
 - QQQ sample date range: 2010-01-01 through 2026-07-10.
-- Data source: Yahoo Finance chart API, normalized into `data/qqq.csv`.
+- Market data source: Yahoo Finance chart API, normalized into pinned local CSVs.
+- Cash-rate source: FRED DGS3MO daily three-month Treasury constant-maturity yield.
 - Baseline strategy: 50-day and 200-day moving-average trend filter.
 - Return model: adjusted-close total return for the initial daily ETF model.
 - Execution model: close[t] observation, close[t+1] fill, then next interval P&L.
@@ -474,9 +484,8 @@ Success criteria:
 
 ## Phase 2: Evaluation Guardrails
 
-Status: complete for application-level research checks. OS-level isolation of
-arbitrary strategy Python remains a deployment requirement before unattended
-autonomous execution.
+Status: complete. Application-level checks and Docker-enforced isolation are
+implemented and verified.
 
 Add checks that make invalid experiments fail loudly.
 
@@ -507,11 +516,8 @@ Existing checks:
 - Trusted code and data hashes plus the changed-file set are emitted with each run.
 - Prefix invariance is checked during every backtest.
 
-Remaining hardening:
+Deferred extension:
 
-- Implement the chosen container boundary with no network, read-only trusted
-  files, fixed resources, and no access to holdout data or experiment history.
-- Add broader property tests for missing-session policy and short evaluation windows.
 - Revisit an approved causal feature library or DSL only after the containerized
   workflow provides evidence that the additional restriction is worth its cost.
 
@@ -545,10 +551,9 @@ Success criteria:
 
 ## Phase 3: Agent Experiment Loop
 
-Status: complete for a human-supervised local research loop. The agent program
-uses fixed attempt/time budgets, material challenger thresholds, full-vector
-review, append-only logging, and separate human-triggered holdout evaluation.
-Results remain exploratory until OS-level isolation and human promotion review.
+Status: complete. The supervised loop uses fixed attempt/time budgets, Docker
+isolation, material challenger thresholds, frozen robustness reports, an
+append-only SQLite ledger, and budgeted human-triggered holdout evaluation.
 
 Create `program.md` for an autonomous-but-constrained research loop.
 
@@ -609,7 +614,7 @@ Purpose:
 - Exact numeric values without parsing formatted stdout.
 - Complete metric set for the latest backtest run.
 
-Experiment ledger:
+Experiment ledger export:
 
 ```text
 results.tsv
@@ -617,7 +622,7 @@ results.tsv
 
 Purpose:
 
-- Append-only local summary of attempted experiments.
+- Human-readable local summary of attempted experiments.
 - Includes attempt number, before/after commit, strategy and harness hashes,
   status, hypothesis, full-metrics artifact path, and short decision reason.
 - Remains separate from `latest_result.json`, which is overwritten each run.
@@ -625,16 +630,19 @@ Purpose:
 Implemented commands:
 
 ```bash
-uv run python backtest.py
-uv run python record_result.py manual_review "hypothesis and result"
-uv run python record_result.py discarded "hypothesis and rejection reason"
-uv run python evaluation.py --candidate <run_id> --approve-locked-holdout
+docker build -t autoquant-research:latest .
+uv run python sandbox_runner.py
+uv run python record_result.py manual_review "hypothesis and result" --batch-id <batch_id>
+uv run python robustness.py --candidate <candidate_id>
+uv run python evaluation.py --candidate <candidate_id> --batch-id <batch_id> --approval-id <approval_id> --approve-locked-holdout
+uv run python promote_candidate.py <candidate_id> --approval-id <approval_id> --reason "review outcome"
 ```
 
-The agent may invoke the append-only recorder but may not edit the ledger or
-artifacts. A locked-holdout command requires an explicit approval flag and a
-clean trusted worktree; it writes separately under `runs/locked/` and never to
-the ordinary agent-visible result file.
+The agent may invoke the attempt recorder but may not edit the ledger or
+artifacts. SQLite triggers reject event updates and deletes. A locked-holdout
+command requires an explicit approval ID, a clean trusted worktree, one lookup
+per batch, and three lifetime looks; it writes separately under `runs/locked/`
+and never to the ordinary agent-visible result file.
 
 Implemented agent instruction file:
 
@@ -644,7 +652,8 @@ program.md
 
 ## Phase 4: Research Memory
 
-Move beyond `results.tsv` once the loop is useful.
+Status: SQLite event ledger implemented for Phase 1-3 attempts, promotions, and
+holdout lookups. Future work can add richer querying and strategy genealogy.
 
 Track:
 
@@ -663,13 +672,9 @@ Track:
 
 Possible storage:
 
-- Keep `results.tsv` for the current single-writer exploratory loop.
-- Continue storing immutable result JSON and patch artifacts as files addressed
-  by path and hash.
-- Move the ledger to an append-only SQLite event schema when the first of these
-  occurs: promotion/holdout events are implemented, the ledger reaches 100
-  attempts, or more than one process needs to write.
-- Retain TSV as a human-readable export after SQLite becomes authoritative.
+- SQLite is the append-only authoritative event ledger.
+- Immutable result JSON and patch artifacts remain files addressed by path and hash.
+- `results.tsv` is a human-readable export.
 
 Success criteria:
 
@@ -723,21 +728,21 @@ Require approval before:
 - Running a locked-holdout evaluation or promoting a research-branch candidate.
 - Introducing any live-trading, broker, or order-management feature.
 
-## Remaining Build Order
+## Phase 1-3 Completion
 
-1. Select and approve the exact three-month Treasury-bill data provider and pin its CSV; the loader and cash accrual are implemented, with an explicit zero-rate fallback until that file is supplied.
-2. Containerize strategy execution with no network, read-only trusted/dev-validation mounts, no holdout/history mount, and fixed resource limits.
-3. Enforce one holdout candidate per batch and three lifetime looks per locked period; record each look as a separate event.
-4. Move the ledger to append-only SQLite when promotion/holdout events are added, while retaining immutable JSON/patch files and TSV export.
-5. Add and pin the SPY/IWM/EFA/EEM confirmation panel and TLT/GLD stress panel.
-6. Add property tests for missing-session policy and short evaluation windows.
-7. Run and record the baseline in a clean research checkout so its integrity block is clean.
+1. Pinned QQQ and robustness-panel market data, FRED DGS3MO cash rates, and provenance hashes are implemented.
+2. Docker research execution stages only trusted code, the candidate strategy, and development/validation data with no network, read-only inputs, temporary writable space, and fixed resource limits.
+3. SQLite events are append-only; TSV is an export; promotions and holdout lookups are distinct events.
+4. Locked evaluation enforces one lookup per batch, three lifetime looks, clean trusted code, and human approval IDs.
+5. Frozen candidates can run against SPY/IWM/EFA/EEM confirmation and TLT/GLD stress panels.
+6. Tests cover causality, invalid data/signals, cost effects, cash accrual, provider-session gaps, short windows, ledger immutability, holdout budgets, and locked-evaluation separation.
 
 ## Decisions
 
 Resolved decisions:
 
-- Data source: download QQQ historical data as the first bundled sample CSV.
+- Market data source: Yahoo Finance chart API for QQQ and the fixed ETF panel.
+- Cash-rate source: FRED DGS3MO daily three-month Treasury constant-maturity yield.
 - Project setup: use `uv` to stay consistent with `autoresearch`.
 - Strategy scope: start with single-asset strategies.
 - Return convention: adjusted-close total return for the initial daily ETF model.
@@ -753,18 +758,13 @@ Resolved decisions:
   report `0.0` plus a diagnostic flag.
 - Strategy isolation: use a resource-limited, network-disabled container with
   read-only trusted and development/validation mounts; keep holdout data and
-  experiment history outside the container. Defer a strategy DSL.
+  experiment history outside the container. Docker is the selected runtime;
+  defer a strategy DSL.
 - Holdout budget: at most one candidate per 20-attempt batch and three lifetime
   evaluations of the same locked period, with no result-driven rerun.
 - Robustness panel: SPY/IWM/EFA/EEM for confirmation and TLT/GLD for stress,
   always using frozen strategy code and parameters.
-- Experiment storage: retain TSV for the current loop; move to append-only
-  SQLite when promotion/holdout events arrive, at 100 attempts, or when multiple
-  writers are needed. Keep immutable JSON/patch artifacts and TSV export.
-
-Remaining implementation details:
-
-- Select and approve the exact Treasury-bill and robustness-panel data provider.
-- Choose the available container runtime and encode its mount/resource policy.
-- Define the human-only holdout pass/fail thresholds before the first lookup.
-- Define the append-only SQLite event schema and migration/export procedure.
+- Experiment storage: append-only SQLite is authoritative; immutable JSON/patch
+  artifacts remain files addressed by path and hash; TSV is an export.
+- Human holdout thresholds: positive annual excess return, no more than 0.02
+  additional maximum drawdown versus the benchmark, and valid risk ratios.

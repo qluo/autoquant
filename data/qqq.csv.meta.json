@@ -1,0 +1,10 @@
+{
+  "adjustment": "Yahoo Finance adjusted close",
+  "calendar": "provider_trading_sessions",
+  "requested_end_date": "2026-07-10",
+  "requested_start_date": "2010-01-01",
+  "retrieved_at_utc": "2026-07-12T13:09:55.855290+00:00",
+  "sha256": "4e8e1d573f4a1dd3bd013c2eb68bb06a1110970daf1c0edc688b7b51526e8572",
+  "source": "https://query1.finance.yahoo.com/v8/finance/chart",
+  "ticker": "QQQ"
+}
