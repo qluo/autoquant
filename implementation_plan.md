@@ -690,7 +690,8 @@ Success criteria:
 
 Status: in progress. The first controlled family is causal trailing-return
 momentum, exposed as `generate_momentum_signals` while the trend baseline remains
-the default research strategy.
+the default research strategy. `STRATEGY_FAMILY` selects the family for a frozen
+candidate run.
 
 After the promotion pipeline is reliable, add controlled strategy families.
 

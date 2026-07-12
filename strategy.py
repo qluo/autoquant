@@ -3,6 +3,7 @@ from __future__ import annotations
 from data import Bar
 
 MOMENTUM_LOOKBACK = 126
+STRATEGY_FAMILY = "trend"
 
 
 def _simple_moving_average(values: list[float], window: int) -> list[float | None]:
@@ -22,8 +23,7 @@ def _simple_moving_average(values: list[float], window: int) -> list[float | Non
     return averages
 
 
-def generate_signals(bars: list[Bar]) -> list[float]:
-    """Return target exposure for each bar, from 0.0 cash to 1.0 long."""
+def _generate_trend_signals(bars: list[Bar]) -> list[float]:
     closes = [bar.adjusted_close for bar in bars]
     sma_50 = _simple_moving_average(closes, 50)
     sma_200 = _simple_moving_average(closes, 200)
@@ -38,6 +38,15 @@ def generate_signals(bars: list[Bar]) -> list[float]:
             signals.append(0.0)
 
     return signals
+
+
+def generate_signals(bars: list[Bar]) -> list[float]:
+    """Return target exposure for the selected strategy family."""
+    if STRATEGY_FAMILY == "trend":
+        return _generate_trend_signals(bars)
+    if STRATEGY_FAMILY == "momentum":
+        return generate_momentum_signals(bars)
+    raise ValueError(f"unknown strategy family: {STRATEGY_FAMILY}")
 
 
 def generate_momentum_signals(

@@ -4,7 +4,7 @@ import datetime as dt
 import unittest
 
 from data import Bar
-from strategy import generate_momentum_signals
+from strategy import generate_momentum_signals, generate_signals
 
 
 def make_bars(values: list[float]) -> list[Bar]:
@@ -31,6 +31,9 @@ class MomentumStrategyTests(unittest.TestCase):
     def test_rejects_non_positive_lookback(self) -> None:
         with self.assertRaisesRegex(ValueError, "positive"):
             generate_momentum_signals(make_bars([100.0]), 0)
+
+    def test_default_strategy_remains_trend(self) -> None:
+        self.assertEqual(generate_signals(make_bars([100.0, 101.0])), [0.0, 0.0])
 
 
 if __name__ == "__main__":
