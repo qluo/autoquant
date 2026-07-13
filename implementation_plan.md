@@ -792,4 +792,8 @@ Resolved decisions:
 
 Phase 5’s momentum and mean-reversion rules are causal and correctly delayed by the execution model. The main gap is governance: selected family/parameters are still mutable code, so the robustness claim is not tied to a frozen implementation.
 
-Verification: `uv run python -m unittest discover -s tests` passes (32 tests). The suite does not cover the findings above, so I would not describe Phases 3–4 as complete until the P0/P1 controls are fixed.
+The candidate-integrity, trusted-worktree, holdout-reservation, metric-convention,
+candidate-artifact, and promotion-input findings are addressed in the
+implementation. Approval authority and autonomous compute-budget enforcement
+remain procedural controls; they require an explicit operator/runner policy
+before they can be made technical guarantees.

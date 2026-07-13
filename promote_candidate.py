@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from ledger import append_event
+from ledger import append_event, read_events
 
 
 def main() -> None:
@@ -11,6 +11,10 @@ def main() -> None:
     parser.add_argument("--approval-id", required=True)
     parser.add_argument("--reason", required=True)
     args = parser.parse_args()
+
+    attempts = read_events(event_type="attempt", candidate_id=args.candidate_id)
+    if not attempts:
+        raise RuntimeError("cannot promote a candidate with no recorded attempt")
 
     event_id = append_event(
         "promotion",

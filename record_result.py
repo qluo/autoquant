@@ -13,6 +13,7 @@ from ledger import append_event, export_attempts_tsv
 LATEST_RESULT_JSON = Path("runs/latest_result.json")
 ATTEMPTS_DIR = Path("runs/attempts")
 PATCHES_DIR = Path("runs/patches")
+STRATEGIES_DIR = Path("runs/strategies")
 
 
 def _git(*args: str) -> str:
@@ -54,6 +55,11 @@ def append_result(
 
     stem = _artifact_stem(strategy_sha256)
     PATCHES_DIR.mkdir(parents=True, exist_ok=True)
+    STRATEGIES_DIR.mkdir(parents=True, exist_ok=True)
+    strategy_snapshot = STRATEGIES_DIR / f"{strategy_sha256}.py"
+    if strategy_snapshot.exists() and _sha256(strategy_snapshot) != strategy_sha256:
+        raise RuntimeError(f"strategy snapshot collision for {strategy_sha256}")
+    strategy_snapshot.write_bytes(Path("strategy.py").read_bytes())
     patch_path = PATCHES_DIR / f"{stem}.diff"
     patch_path.write_text(_git("diff", "--", "strategy.py"))
     result_path: Path | None = None
@@ -69,6 +75,7 @@ def append_result(
         "reason": reason,
         "config_sha256": _sha256(Path("config.py")),
         "patch_path": str(patch_path),
+        "strategy_snapshot_path": str(strategy_snapshot),
     }
     if payload:
         ATTEMPTS_DIR.mkdir(parents=True, exist_ok=True)

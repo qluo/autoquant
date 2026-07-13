@@ -102,6 +102,14 @@ def main() -> None:
         parser.error("locked holdout requires --approve-locked-holdout")
     if not re.fullmatch(r"[A-Za-z0-9_-]+", args.candidate):
         parser.error("candidate must contain only letters, numbers, '_' or '-'")
+    if not re.fullmatch(r"[0-9a-f]{64}", args.candidate):
+        parser.error("candidate must be a 64-character strategy SHA-256")
+    current_hash = hashlib.sha256(Path("strategy.py").read_bytes()).hexdigest()
+    if current_hash != args.candidate:
+        raise RuntimeError(
+            "candidate hash does not match the currently loaded strategy.py; "
+            "restore the frozen candidate before evaluating it"
+        )
 
     trusted_changes = [
         path
@@ -114,22 +122,18 @@ def main() -> None:
             + ", ".join(trusted_changes)
         )
 
-    payload = evaluate_locked_holdout(load_bars(DEFAULT_CSV))
-    LOCKED_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    output = LOCKED_RESULTS_DIR / f"{args.candidate}.json"
-    output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     event_id = reserve_holdout_lookup(
         holdout_id=HOLDOUT_ID,
         batch_id=args.batch_id,
         candidate_id=args.candidate,
-        payload={
-            "approval_id": args.approval_id,
-            "result_path": str(output),
-            "result_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-        },
+        payload={"approval_id": args.approval_id},
         max_total=MAX_HOLDOUT_LOOKUPS,
         max_per_batch=MAX_HOLDOUT_LOOKUPS_PER_BATCH,
     )
+    payload = evaluate_locked_holdout(load_bars(DEFAULT_CSV))
+    LOCKED_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    output = LOCKED_RESULTS_DIR / f"{args.candidate}.json"
+    output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     print(f"recorded human-only locked evaluation event {event_id}")
 
 

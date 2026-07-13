@@ -9,6 +9,7 @@ from metrics import (
     max_drawdown,
     sharpe_ratio,
     sortino_ratio,
+    information_ratio,
 )
 
 
@@ -36,6 +37,18 @@ class MetricsTests(unittest.TestCase):
         returns = [0.01, 0.03]
         self.assertAlmostEqual(
             annualized_excess_return(returns, risk_free_daily=0.01), 2.52
+        )
+
+    def test_sharpe_volatility_uses_excess_returns(self) -> None:
+        returns = [0.01, 0.03]
+        risk_free = [0.01, 0.01]
+
+        expected = 2.52 / (0.01 * (2 ** 0.5) * (252 ** 0.5))
+        self.assertAlmostEqual(sharpe_ratio(returns, risk_free), expected)
+
+    def test_information_ratio_uses_arithmetic_active_return(self) -> None:
+        self.assertAlmostEqual(
+            information_ratio([0.10, -0.10], [0.0, 0.0]), 0.0
         )
 
 

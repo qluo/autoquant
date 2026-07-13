@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from backtest import LATEST_RESULT_JSON, TRUSTED_FILES
+from backtest import LATEST_RESULT_JSON, TRUSTED_FILES, changed_files
 from config import VALIDATION_END
 from data import DEFAULT_CSV, RISK_FREE_CSV
 
@@ -45,6 +45,16 @@ def _stage_runner(stage: Path) -> None:
 
 
 def run_sandboxed_backtest() -> Path:
+    trusted_changes = [
+        path
+        for path in changed_files()
+        if path in TRUSTED_FILES or path.startswith("tests/")
+    ]
+    if trusted_changes:
+        raise RuntimeError(
+            "sandbox requires a clean trusted worktree; changed files: "
+            + ", ".join(trusted_changes)
+        )
     output_dir = ROOT / "runs" / "sandbox"
     output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="autoquant-stage-") as temp_dir:

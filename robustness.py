@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import statistics
 from dataclasses import asdict
 from pathlib import Path
@@ -34,6 +36,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", required=True)
     args = parser.parse_args()
+
+    if not re.fullmatch(r"[0-9a-f]{64}", args.candidate):
+        parser.error("candidate must be a 64-character strategy SHA-256")
+    current_hash = hashlib.sha256(Path("strategy.py").read_bytes()).hexdigest()
+    if current_hash != args.candidate:
+        raise RuntimeError(
+            "candidate hash does not match the currently loaded strategy.py; "
+            "restore the frozen candidate before evaluating it"
+        )
 
     core_results = [evaluate_ticker(ticker) for ticker in ROBUSTNESS_CORE_TICKERS]
     stress_results = [evaluate_ticker(ticker) for ticker in ROBUSTNESS_STRESS_TICKERS]

@@ -75,7 +75,8 @@ def downside_deviation(
 def sharpe_ratio(
     returns: list[float], risk_free_daily: float | Sequence[float] = 0.0
 ) -> float:
-    volatility = annualized_volatility(returns)
+    excess = _excess_returns(returns, risk_free_daily)
+    volatility = annualized_volatility(excess)
     if volatility == 0.0:
         return 0.0
     return annualized_excess_return(returns, risk_free_daily) / volatility
@@ -147,7 +148,7 @@ def information_ratio(
             strategy_returns, benchmark_returns, strict=True
         )
     ]
-    return annualized_return(active_returns) / error
+    return annualized_excess_return(active_returns) / error
 
 
 def max_drawdown(returns: list[float]) -> float:
