@@ -55,9 +55,10 @@ The controller supports the currently vetted single-asset families: `trend`,
 
 ## Safety boundary
 
-The QQQ sample workflow uses 2010–2017 for development and 2018–2021 for
-validation. The 2022+ period is locked. Only a human may run locked evaluation
-or promotion, and no agent may use locked results to generate or tune ideas.
+Each approved research universe has fixed development and validation periods,
+plus a separate locked holdout defined by its evaluation policy. Only a human
+may run locked evaluation or promotion, and no agent may use locked results to
+generate or tune ideas.
 
 New data, universes, cost assumptions, evaluation policies, and multi-asset
 strategies require human approval before research begins.
