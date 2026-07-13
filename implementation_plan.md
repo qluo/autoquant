@@ -792,8 +792,10 @@ Resolved decisions:
 
 Phase 5’s momentum and mean-reversion rules are causal and correctly delayed by the execution model. The main gap is governance: selected family/parameters are still mutable code, so the robustness claim is not tied to a frozen implementation.
 
-The candidate-integrity, trusted-worktree, holdout-reservation, metric-convention,
-candidate-artifact, and promotion-input findings are addressed in the
-implementation. Approval authority and autonomous compute-budget enforcement
-remain procedural controls; they require an explicit operator/runner policy
-before they can be made technical guarantees.
+Candidate-integrity, working-tree enforcement, holdout reservation ordering,
+metric conventions, candidate artifacts, and promotion-input validation are
+addressed in the implementation. A truly immutable trusted-harness guarantee
+still requires an external signed hash manifest or prebuilt evaluator image;
+the current sandbox rejects modified trusted files before staging. Approval
+authority and autonomous compute-budget enforcement remain procedural controls
+until an explicit operator/runner policy is supplied.
