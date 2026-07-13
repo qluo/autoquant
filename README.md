@@ -2,10 +2,15 @@
 
 Offline, constrained research harness for daily ETF strategies.
 
-Research uses QQQ through 2021 only: 2010-2017 development and 2018-2021
-validation. The 2022+ period is locked and available only to a human-controlled
-evaluator. Signals use adjusted close, fill on the following close, and earn
-returns only after that fill.
+Start strategy research with [the research playbook](research_playbook.md).
+QQQ is the initial sample dataset, not a claim that every hypothesis or result
+applies only to QQQ.
+
+The included QQQ sample workflow uses data through 2021 only: 2010-2017
+development and 2018-2021 validation. The 2022+ period is locked and available
+only to a human-controlled evaluator. Signals use adjusted close, fill on the
+following close, and earn returns only after that fill. New universes require
+their own approved data, benchmarks, cost assumptions, and evaluation policy.
 
 ## Pinned Inputs
 

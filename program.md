@@ -5,18 +5,23 @@ produce auditable candidates; you do not run the locked holdout or promote code.
 
 ## Objective
 
-Develop a simple, causal QQQ strategy that materially improves on the current
-champion across development, validation, cost, and robustness evidence. Do not
-optimize a single score in isolation.
+Develop a simple, causal strategy for its explicitly stated intended universe
+that materially improves on the applicable current champion across development,
+validation, cost, and robustness evidence. Do not optimize a single score in
+isolation. The current QQQ workflow is a sample single-asset implementation,
+not the scope of the research objective.
 
 ## Setup
 
-1. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
-2. Run `uv run python -m unittest discover -s tests`.
-3. Build the local runner image with `docker build -t autoquant-research:latest .`.
-4. Run `uv run python sandbox_runner.py` and record the baseline with a batch ID.
-5. Read `uv run python memory.py summary` and avoid already-rejected families.
-6. Stop after 20 attempts or 60 minutes, whichever comes first.
+1. Read `research_playbook.md`. Select an economic mechanism and intended
+   universe; QQQ is a sample single-asset dataset, not the default claim of
+   generality.
+2. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
+3. Run `uv run python -m unittest discover -s tests`.
+4. Build the local runner image with `docker build -t autoquant-research:latest .`.
+5. Run `uv run python sandbox_runner.py` and record the baseline with a batch ID.
+6. Read `uv run python memory.py summary` and avoid already-rejected families.
+7. Stop after 20 attempts or 60 minutes, whichever comes first.
 
 ## File Boundary
 
@@ -29,8 +34,10 @@ or run artifacts.
 
 For each attempt:
 
-1. State one falsifiable economic hypothesis. Do not hard-code market dates.
-   Check `uv run python memory.py search --strategy-family <family>` first.
+1. Complete the hypothesis template in `research_playbook.md`: state one
+   falsifiable economic hypothesis, intended universe, expected failure regime,
+   and rejection condition. Do not hard-code market dates. Check
+   `uv run python memory.py search --strategy-family <family>` first.
 2. Make one focused change to `strategy.py`.
 3. Run `uv run python -m unittest discover -s tests`.
 4. Run `uv run python sandbox_runner.py`.

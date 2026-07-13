@@ -81,6 +81,8 @@ autoquant/
 Initial file roles:
 
 - `program.md`: instructions for the research agent.
+- `research_playbook.md`: universe-agnostic hypothesis and experiment-design
+  guidance; QQQ is an initial sample dataset, not the research objective.
 - `data.py`: fixed data loading, cleaning, and evaluation-dataset selection.
 - `backtest.py`: fixed backtest harness and portfolio simulation.
 - `metrics.py`: fixed performance and risk metrics.
@@ -168,7 +170,9 @@ Input data is daily OHLCV:
 Date, Open, High, Low, Close, Adj Close, Volume
 ```
 
-The initial dataset is QQQ daily data. Additional tickers can be downloaded with the same schema.
+QQQ daily data is the initial sample dataset. Additional single-asset datasets
+can use the same schema; strategies requiring cross-sectional ranking or
+portfolio construction need an expanded, explicitly approved interface.
 
 `data.Bar` is the in-memory representation of one daily OHLCV row:
 
@@ -288,7 +292,8 @@ must be checked before a promotion decision.
 The exploratory research loop should work like this:
 
 ```text
-1. Read program.md and the append-only experiment ledger.
+1. Read program.md, research_playbook.md, and the append-only experiment
+   ledger. State the intended universe before proposing a hypothesis.
 2. Inspect development/validation baselines and the current champion.
 3. Propose one falsifiable strategy hypothesis.
 4. Edit only strategy.py in the research worktree.
