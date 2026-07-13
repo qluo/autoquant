@@ -7,6 +7,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from experiment_manifest import ExperimentManifest
 from ledger import append_event, export_attempts_tsv
 
 
@@ -39,8 +40,10 @@ def append_result(
     strategy_family: str,
     parent_candidate: str | None,
     reason: str,
+    manifest: ExperimentManifest | None = None,
+    strategy_path: Path = Path("strategy.py"),
 ) -> int:
-    strategy_sha256 = _sha256(Path("strategy.py"))
+    strategy_sha256 = _sha256(strategy_path)
     payload = (
         json.loads(LATEST_RESULT_JSON.read_text())
         if LATEST_RESULT_JSON.exists()
@@ -59,7 +62,7 @@ def append_result(
     strategy_snapshot = STRATEGIES_DIR / f"{strategy_sha256}.py"
     if strategy_snapshot.exists() and _sha256(strategy_snapshot) != strategy_sha256:
         raise RuntimeError(f"strategy snapshot collision for {strategy_sha256}")
-    strategy_snapshot.write_bytes(Path("strategy.py").read_bytes())
+    strategy_snapshot.write_bytes(strategy_path.read_bytes())
     patch_path = PATCHES_DIR / f"{stem}.diff"
     patch_path.write_text(_git("diff", "--", "strategy.py"))
     result_path: Path | None = None
@@ -77,6 +80,8 @@ def append_result(
         "patch_path": str(patch_path),
         "strategy_snapshot_path": str(strategy_snapshot),
     }
+    if manifest is not None:
+        row["manifest"] = manifest.as_payload()
     if payload:
         ATTEMPTS_DIR.mkdir(parents=True, exist_ok=True)
         result_path = ATTEMPTS_DIR / f"{stem}.json"
@@ -111,6 +116,8 @@ def main() -> None:
     parser.add_argument("--strategy-family", default="unspecified")
     parser.add_argument("--parent-candidate")
     parser.add_argument("--reason", default="")
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--strategy-path", type=Path, default=Path("strategy.py"))
     args = parser.parse_args()
 
     event_id = append_result(
@@ -120,6 +127,8 @@ def main() -> None:
         args.strategy_family,
         args.parent_candidate,
         args.reason,
+        ExperimentManifest.from_path(args.manifest) if args.manifest else None,
+        args.strategy_path,
     )
     print(f"recorded attempt event {event_id}")
 

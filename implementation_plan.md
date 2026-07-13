@@ -829,27 +829,20 @@ evidence.
 
 ### 3. Missing capabilities
 
-The current project provides the constrained evaluator, sandbox runner, ledger,
-research playbook, and manual commands, but no executable controller performs
-the workflow above. The remaining implementation work is:
+Implemented: `daily_controller.py` is a cron-compatible daily entry point. It
+validates approved local inputs and a structured manifest, enforces the per-batch
+attempt and wall-clock budgets, selects one existing vetted family in an
+isolated Git worktree, runs tests and the sandbox, records immutable source and
+result artifacts, and writes a reviewer summary. `data_policy.md` defines the
+approval requirements for input refreshes; `experiment_manifest.py` retains the
+intended universe, mechanism, causal inputs, parameter budget, expected failure
+regime, and rejection condition with each attempt.
 
-- A scheduler or other daily trigger.
-- An agent runner that reads the ledger/playbook, creates an isolated workspace,
-  proposes a hypothesis, edits `strategy.py`, executes the permitted commands,
-  records the outcome, and reverts unsuccessful changes.
-- An approved market-input and data-refresh policy, including provenance,
-  versioning, calendar/corporate-action handling, and lookahead controls. The
-  current agent program prohibits downloads, and existing data commands are
-  manual bootstrap utilities.
-- A structured hypothesis/experiment manifest so the intended universe,
-  mechanism, causal inputs, parameter budget, expected failure regime, and
-  rejection condition are machine-readable and retained with each attempt.
-- A reviewer-summary generator that explains the hypothesis, data version,
-  changed source, development/research-period evidence, costs, robustness, and
-  final discard/candidate decision. No notification or delivery integration is
-  required.
-- Mechanical enforcement of attempt, wall-clock, and sandbox execution budgets.
-- A generalized universe/strategy interface. The present implementation is
-  still a single-asset, QQQ-configured sample workflow; cross-sectional and
-  portfolio strategies require approved synchronized data, benchmark, cost, and
-  portfolio-construction contracts.
+Two activation items remain intentionally external to the repository:
+
+- An operator must install the daily trigger (for example, a cron or CI
+  schedule) and supply a reviewed manifest. The controller deliberately does
+  not install or modify host scheduling.
+- Cross-sectional and portfolio strategies require an approved synchronized
+  multi-asset data, benchmark, cost, and portfolio-construction contract. The
+  current QQQ single-asset interface cannot honestly implement them.

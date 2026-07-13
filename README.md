@@ -6,6 +6,21 @@ Start strategy research with [the research playbook](research_playbook.md).
 QQQ is the initial sample dataset, not a claim that every hypothesis or result
 applies only to QQQ.
 
+## Daily controller
+
+Create a complete experiment manifest, then run the cron-compatible controller:
+
+```bash
+uv run python daily_controller.py --manifest manifests/daily-001.json --dry-run
+uv run python daily_controller.py --manifest manifests/daily-001.json
+```
+
+It validates approved local inputs and the attempt budget, evaluates one
+predeclared strategy family in an isolated Git worktree, records the result,
+and writes a reviewer summary under `runs/reports/`. It does not download data,
+run a locked evaluation, promote candidates, or install a scheduler. See
+[data_policy.md](data_policy.md) for input-refresh requirements.
+
 The included QQQ sample workflow uses data through 2021 only: 2010-2017
 development and 2018-2021 validation. The 2022+ period is locked and available
 only to a human-controlled evaluator. Signals use adjusted close, fill on the
