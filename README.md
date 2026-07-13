@@ -6,20 +6,75 @@ Start strategy research with [the research playbook](research_playbook.md).
 QQQ is the initial sample dataset, not a claim that every hypothesis or result
 applies only to QQQ.
 
-## Daily controller
+## Run one daily experiment manually
 
-Create a complete experiment manifest, then run the cron-compatible controller:
+The daily controller evaluates one predeclared, vetted strategy family in an
+isolated Git worktree. It records the experiment and writes a reviewer report;
+it never downloads data, promotes a candidate, or accesses the locked holdout.
+
+### First-time setup
+
+From `autoquant/`:
 
 ```bash
-uv run python daily_controller.py --manifest manifests/daily-001.json --dry-run
-uv run python daily_controller.py --manifest manifests/daily-001.json
+uv sync
+docker build -t autoquant-research:latest .
+uv run python -m unittest discover -s tests
 ```
 
-It validates approved local inputs and the attempt budget, evaluates one
-predeclared strategy family in an isolated Git worktree, records the result,
-and writes a reviewer summary under `runs/reports/`. It does not download data,
-run a locked evaluation, promote candidates, or install a scheduler. See
-[data_policy.md](data_policy.md) for input-refresh requirements.
+The repository must be a Git checkout and Docker must be available. Local
+market inputs must already be approved and pinned; see [data_policy.md](data_policy.md).
+
+### 1. Create a manifest
+
+Create a new JSON file each day—for example, `manifests/2026-07-13-trend.json`:
+
+```json
+{
+  "batch_id": "2026-07-13-trend",
+  "hypothesis": "A trend-following rule can provide useful risk-adjusted exposure for liquid broad equity ETFs.",
+  "strategy_family": "trend",
+  "intended_universe": "liquid broad equity ETFs",
+  "economic_mechanism": "persistent information diffusion and institutional flows",
+  "causal_inputs": "daily adjusted closes known at the signal timestamp",
+  "parameter_budget": "one existing vetted family; no parameter changes",
+  "expected_failure_regime": "sideways markets and abrupt reversals",
+  "rejection_condition": "no improvement over the current baseline after costs"
+}
+```
+
+Supported families are `trend`, `momentum`, `mean_reversion`,
+`volatility_targeting`, `factor_combo`, `regime_filter`, and
+`risk_constrained`. Choose one bounded hypothesis; do not tune parameters in
+the manifest after seeing results.
+
+### 2. Preflight, then run
+
+```bash
+uv run python daily_controller.py --manifest manifests/2026-07-13-trend.json --dry-run
+uv run python daily_controller.py --manifest manifests/2026-07-13-trend.json
+```
+
+The controller verifies the pinned QQQ and risk-free inputs, checks the
+per-batch attempt limit, runs tests and the sandboxed backtest, records the
+result with an immutable strategy snapshot, and reverts the temporary
+workspace. The batch is limited to 20 attempts and 60 minutes.
+
+### 3. Review the outcome
+
+```bash
+uv run python memory.py summary
+uv run python memory.py search --strategy-family trend
+```
+
+Open the report path printed by the controller under `runs/reports/`. It
+contains the hypothesis, source/data hashes, validation metrics, costs, and
+the manual-review decision. A result is not a promotion or a locked-holdout
+evaluation.
+
+Use a new `batch_id` for a new authorized batch. Re-running the same visible
+data is not new evidence; keep the hypothesis and rejection rule fixed before
+running it.
 
 The included QQQ sample workflow uses data through 2021 only: 2010-2017
 development and 2018-2021 validation. The 2022+ period is locked and available
