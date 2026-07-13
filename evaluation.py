@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 import re
 from dataclasses import asdict
 from pathlib import Path
@@ -100,6 +101,8 @@ def main() -> None:
 
     if not args.approve_locked_holdout:
         parser.error("locked holdout requires --approve-locked-holdout")
+    if not sys.stdin.isatty():
+        raise RuntimeError("locked holdout requires interactive human confirmation")
     if not re.fullmatch(r"[A-Za-z0-9_-]+", args.candidate):
         parser.error("candidate must contain only letters, numbers, '_' or '-'")
     if not re.fullmatch(r"[0-9a-f]{64}", args.candidate):
@@ -110,6 +113,11 @@ def main() -> None:
             "candidate hash does not match the currently loaded strategy.py; "
             "restore the frozen candidate before evaluating it"
         )
+    confirmation = input(
+        f"Type the full candidate hash to authorize locked evaluation: "
+    ).strip()
+    if confirmation != args.candidate:
+        raise RuntimeError("candidate confirmation did not match")
 
     trusted_changes = [
         path

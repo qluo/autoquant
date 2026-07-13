@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import shutil
 import subprocess
 import tempfile
@@ -75,6 +76,8 @@ def run_sandboxed_backtest() -> Path:
             "512m",
             "--cpus",
             "1.0",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
             "--mount",
             f"type=bind,src={stage},dst=/app,readonly",
             "--mount",

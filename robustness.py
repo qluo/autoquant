@@ -8,7 +8,7 @@ import statistics
 from dataclasses import asdict
 from pathlib import Path
 
-from backtest import RUNS_DIR, run_backtest
+from backtest import RUNS_DIR, TRUSTED_FILES, changed_files, run_backtest
 from config import ROBUSTNESS_CORE_TICKERS, ROBUSTNESS_STRESS_TICKERS
 from data import load_bars, ticker_csv_path
 
@@ -44,6 +44,16 @@ def main() -> None:
         raise RuntimeError(
             "candidate hash does not match the currently loaded strategy.py; "
             "restore the frozen candidate before evaluating it"
+        )
+    trusted_changes = [
+        path
+        for path in changed_files()
+        if path in TRUSTED_FILES or path.startswith("tests/")
+    ]
+    if trusted_changes:
+        raise RuntimeError(
+            "robustness requires a clean trusted worktree; changed files: "
+            + ", ".join(trusted_changes)
         )
 
     core_results = [evaluate_ticker(ticker) for ticker in ROBUSTNESS_CORE_TICKERS]

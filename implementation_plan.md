@@ -817,6 +817,13 @@ Key remaining issues:
 
 3. **P1 — Robustness evaluation does not enforce a clean trusted harness.** It verifies the current strategy hash but neither checks trusted-file changes nor executes from a verified evaluator snapshot. A locally modified `backtest.py` or `metrics.py` can therefore produce a seemingly valid robustness report. [robustness.py](/Users/ddev/Documents/Projects/autoquant/robustness.py:42)
 
+Findings 1 and 3 are addressed with interactive candidate confirmation and
+trusted-worktree checks. Finding 2 is partially mitigated by running the
+sandbox as the invoking non-root user, but the result channel is still shared
+by trusted and untrusted code in one process. A complete fix requires running
+the evaluator/result writer in a separate trusted process or container and
+passing only validated signals across that boundary.
+
 4. **P1 — Experiment and runtime budgets remain unenforced.** The 20-attempt/60-minute policy exists only in configuration and instructions. `record_result.py` never checks attempts, and `subprocess.run()` has no timeout, so an infinite strategy can consume the research session. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:35), [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:92)
 
 5. **P2 — Candidate eligibility is not tied to recorded evidence.** The hash check proves the loaded file matches the supplied hash, but locked evaluation does not require a matching recorded attempt, result artifact, passing tests, challenger criteria, or saved snapshot. Promotion likewise only requires any attempt event. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:125), [promote_candidate.py](/Users/ddev/Documents/Projects/autoquant/promote_candidate.py:15)
