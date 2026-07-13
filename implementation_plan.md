@@ -688,8 +688,9 @@ Success criteria:
 
 ## Phase 5: Strategy Research Expansion
 
-Status: in progress. Controlled causal momentum and mean-reversion families are
-available while the trend baseline remains the default research strategy.
+Status: in progress. Controlled causal momentum, mean-reversion, and volatility
+targeting families are available while the trend baseline remains the default
+research strategy.
 `STRATEGY_FAMILY` selects the family for a frozen candidate run.
 
 After the promotion pipeline is reliable, add controlled strategy families.

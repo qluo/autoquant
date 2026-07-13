@@ -4,7 +4,12 @@ import datetime as dt
 import unittest
 
 from data import Bar
-from strategy import generate_mean_reversion_signals, generate_momentum_signals, generate_signals
+from strategy import (
+    generate_mean_reversion_signals,
+    generate_momentum_signals,
+    generate_signals,
+    generate_volatility_targeting_signals,
+)
 
 
 def make_bars(values: list[float]) -> list[Bar]:
@@ -39,6 +44,21 @@ class MomentumStrategyTests(unittest.TestCase):
         signals = generate_mean_reversion_signals(make_bars([100.0, 110.0, 90.0]), 2)
 
         self.assertEqual(signals, [0.0, 0.0, 1.0])
+
+    def test_volatility_targeting_waits_for_lookback(self) -> None:
+        signals = generate_volatility_targeting_signals(
+            make_bars([100.0, 101.0, 100.0, 101.0]), lookback=2
+        )
+
+        self.assertEqual(signals[:2], [0.0, 0.0])
+        self.assertGreater(signals[2], 0.0)
+        self.assertLessEqual(signals[2], 1.0)
+
+    def test_volatility_targeting_rejects_invalid_parameters(self) -> None:
+        with self.assertRaisesRegex(ValueError, "at least 2"):
+            generate_volatility_targeting_signals(make_bars([100.0, 101.0]), 1)
+        with self.assertRaisesRegex(ValueError, "positive"):
+            generate_volatility_targeting_signals(make_bars([100.0, 101.0]), 2, 0.0)
 
 
 if __name__ == "__main__":
