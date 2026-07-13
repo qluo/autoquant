@@ -786,57 +786,70 @@ Resolved decisions:
 - Human holdout thresholds: positive annual excess return, no more than 0.02
   additional maximum drawdown versus the benchmark, and valid risk ratios.
 
-## Code Review findings I
+## What is missing
 
-1. **P0 — Frozen-candidate integrity is not enforced.** Both locked evaluation and robustness reporting run the current `strategy.py`, while `--candidate` is only a label. A strategy can be changed after its recorded result and evaluated/reported as the prior candidate. This invalidates Phase 3/5 promotion evidence. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:117), [robustness.py](/Users/ddev/Documents/Projects/autoquant/robustness.py:14)
+### 1. Summary of expectation of this auto agent
 
-2. **P0 — The sandbox does not protect the trusted evaluator.** `sandbox_runner.py` stages whatever trusted files are in the working tree; a modified `backtest.py`/`config.py` is therefore executed. Inside the staging directory `git status` fails, so the result reports trusted files clean. Use a verified clean checkout or compare against approved hashes before staging. [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:37), [backtest.py](/Users/ddev/Documents/Projects/autoquant/backtest.py:359)
+AutoQuant should be runnable as a daily, autonomous research agent. For each
+authorized research run, it should read prior experiments and the research
+playbook, propose a bounded and falsifiable hypothesis, implement the focused
+strategy change in an isolated workspace, conduct the fixed experiments, retain
+the full audit trail, and prepare a concise finding for human reviewers.
 
-3. **P1 — Locked-holdout budget is consumed after releasing the result.** The holdout JSON is written before `reserve_holdout_lookup()`. A second same-batch request fails the reservation but has already produced a detailed locked result, defeating the one-lookup constraint. Reserve atomically before evaluation/output, or write only to inaccessible temporary storage until reservation succeeds. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:117)
+The agent should generate ideas from the recorded research history and from
+approved, versioned market inputs. QQQ is an initial sample dataset, not the
+scope of the research objective; every hypothesis must name its intended
+universe. The agent must remain unable to trade, access a broker, alter trusted
+evaluation code, or access the locked holdout during routine research.
 
-4. **P1 — Sharpe and information-ratio conventions are incorrect.** Sharpe divides excess return by volatility of raw returns, not daily excess returns as specified. Information ratio compounds daily active returns, which are not a self-financing return series; it should use annualized arithmetic mean active return divided by tracking error. [metrics.py](/Users/ddev/Documents/Projects/autoquant/metrics.py:75), [metrics.py](/Users/ddev/Documents/Projects/autoquant/metrics.py:138)
+Preparing a reviewer-ready report is in scope. Delivering that report through
+email, Slack, a dashboard, or another notification system is intentionally out
+of scope for this project.
 
-5. **P1 — The stated experiment/time and human-approval gates are procedural only.** No code enforces the 20-attempt/60-minute budget or sandbox timeout; `promotion` accepts any candidate ID and arbitrary approval text without verifying candidate artifacts, gates, or human authority. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:34), [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:82), [promote_candidate.py](/Users/ddev/Documents/Projects/autoquant/promote_candidate.py:8)
+### 2. Daily controller workflow
 
-6. **P2 — Candidate artifacts are not reliably reproducible.** Recording stores `git diff strategy.py`; a committed strategy yields an empty patch, and neither the complete strategy source nor artifact hashes are retained. Store immutable source snapshots keyed by strategy SHA-256. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:55)
+```text
+scheduled daily trigger
+-> verify approved, versioned data is available
+-> read experiment ledger, current champion, and research playbook
+-> generate one bounded economic hypothesis and pre-committed rejection rule
+-> create an isolated strategy workspace
+-> implement one focused strategy change
+-> run tests and the fixed sandboxed backtest
+-> record immutable result, source snapshot, and decision in the ledger
+-> discard/revert or freeze a candidate using fixed acceptance gates
+-> generate a concise reviewer-ready research summary
+```
 
-Phase 5’s momentum and mean-reversion rules are causal and correctly delayed by the execution model. The main gap is governance: selected family/parameters are still mutable code, so the robustness claim is not tied to a frozen implementation.
+The controller must not run locked evaluation or promotion. It must not use
+locked-holdout outputs to generate, select, or refine ideas. Research on a day
+without a newly approved data version remains subject to the cumulative
+experiment budget; repeated tuning on the same visible period is not new
+evidence.
 
-Candidate-integrity, working-tree enforcement, holdout reservation ordering,
-metric conventions, candidate artifacts, and promotion-input validation are
-addressed in the implementation. A truly immutable trusted-harness guarantee
-still requires an external signed hash manifest or prebuilt evaluator image;
-the current sandbox rejects modified trusted files before staging. Approval
-authority and autonomous compute-budget enforcement remain procedural controls
-until an explicit operator/runner policy is supplied.
+### 3. Missing capabilities
 
-## Code Review Findings 2
+The current project provides the constrained evaluator, sandbox runner, ledger,
+research playbook, and manual commands, but no executable controller performs
+the workflow above. The remaining implementation work is:
 
-The code is functionally coherent and all tests pass (39/39). The default trend baseline also runs end-to-end, but it trails QQQ in validation: 19.35% vs. 27.28% annualized return (−7.93% excess), so it should remain a baseline rather than a champion.
-
-Key remaining issues:
-
-1. **P0 — Locked-holdout access is not actually human-only.** Any local process can supply an arbitrary `--approval-id` and run the evaluator against the full QQQ file. The flag is an assertion, not an authorization boundary. This conflicts with the plan’s mechanical-access-control requirement. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:93)
-
-2. **P1 — Untrusted strategy code can forge the sandbox result.** The candidate strategy runs as root and has write access to `/output`; it can overwrite `latest_result.json` after the trusted harness writes it (for example via an exit hook). The host then accepts that file as the experiment result. [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:78)
-
-3. **P1 — Robustness evaluation does not enforce a clean trusted harness.** It verifies the current strategy hash but neither checks trusted-file changes nor executes from a verified evaluator snapshot. A locally modified `backtest.py` or `metrics.py` can therefore produce a seemingly valid robustness report. [robustness.py](/Users/ddev/Documents/Projects/autoquant/robustness.py:42)
-
-Findings 1 and 3 are addressed with interactive candidate confirmation and
-trusted-worktree checks. Finding 2 is partially mitigated by running the
-sandbox as the invoking non-root user, but the result channel is still shared
-by trusted and untrusted code in one process. A complete fix requires running
-the evaluator/result writer in a separate trusted process or container and
-passing only validated signals across that boundary.
-
-4. **P1 — Experiment and runtime budgets remain unenforced.** The 20-attempt/60-minute policy exists only in configuration and instructions. `record_result.py` never checks attempts, and `subprocess.run()` has no timeout, so an infinite strategy can consume the research session. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:35), [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:92)
-
-5. **P2 — Candidate eligibility is not tied to recorded evidence.** The hash check proves the loaded file matches the supplied hash, but locked evaluation does not require a matching recorded attempt, result artifact, passing tests, challenger criteria, or saved snapshot. Promotion likewise only requires any attempt event. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:125), [promote_candidate.py](/Users/ddev/Documents/Projects/autoquant/promote_candidate.py:15)
-
-Phase 5’s strategy rules are causal under the harness’s delayed execution model. Momentum, mean reversion, volatility targeting, combinations, regime filtering, and the exposure cap are reasonable single-asset research primitives. The major remaining work is strengthening the claimed trust boundaries—not adding more strategy families.
-
-::code-comment{title="[P0] Holdout approval is not enforced" body="An arbitrary local caller can invent an approval ID and access detailed locked results. Put locked data/evaluation in a separately permissioned process or require externally verified authorization." file="/Users/ddev/Documents/Projects/autoquant/evaluation.py" start=93 end=133 priority=0}
-
-::code-comment{title="[P1] Candidate can overwrite result artifact" body="The untrusted strategy has write access to /output, so it can forge latest_result.json. Keep the candidate container’s writable area separate from the trusted result writer." file="/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py" start=78 end=92 priority=1}
-
-::code-comment{title="[P1] Robustness evaluator lacks harness verification" body="Verify the trusted worktree or run from a verified snapshot before producing a frozen-candidate robustness report." file="/Users/ddev/Documents/Projects/autoquant/robustness.py" start=42 end=50 priority=1}
+- A scheduler or other daily trigger.
+- An agent runner that reads the ledger/playbook, creates an isolated workspace,
+  proposes a hypothesis, edits `strategy.py`, executes the permitted commands,
+  records the outcome, and reverts unsuccessful changes.
+- An approved market-input and data-refresh policy, including provenance,
+  versioning, calendar/corporate-action handling, and lookahead controls. The
+  current agent program prohibits downloads, and existing data commands are
+  manual bootstrap utilities.
+- A structured hypothesis/experiment manifest so the intended universe,
+  mechanism, causal inputs, parameter budget, expected failure regime, and
+  rejection condition are machine-readable and retained with each attempt.
+- A reviewer-summary generator that explains the hypothesis, data version,
+  changed source, development/research-period evidence, costs, robustness, and
+  final discard/candidate decision. No notification or delivery integration is
+  required.
+- Mechanical enforcement of attempt, wall-clock, and sandbox execution budgets.
+- A generalized universe/strategy interface. The present implementation is
+  still a single-asset, QQQ-configured sample workflow; cross-sectional and
+  portfolio strategies require approved synchronized data, benchmark, cost, and
+  portfolio-construction contracts.
