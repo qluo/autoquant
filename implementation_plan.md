@@ -781,7 +781,7 @@ Resolved decisions:
 - Human holdout thresholds: positive annual excess return, no more than 0.02
   additional maximum drawdown versus the benchmark, and valid risk ratios.
 
-## Code Review findings
+## Code Review findings I
 
 1. **P0 — Frozen-candidate integrity is not enforced.** Both locked evaluation and robustness reporting run the current `strategy.py`, while `--candidate` is only a label. A strategy can be changed after its recorded result and evaluated/reported as the prior candidate. This invalidates Phase 3/5 promotion evidence. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:117), [robustness.py](/Users/ddev/Documents/Projects/autoquant/robustness.py:14)
 
@@ -804,3 +804,27 @@ still requires an external signed hash manifest or prebuilt evaluator image;
 the current sandbox rejects modified trusted files before staging. Approval
 authority and autonomous compute-budget enforcement remain procedural controls
 until an explicit operator/runner policy is supplied.
+
+## Code Review Findings 2
+
+The code is functionally coherent and all tests pass (39/39). The default trend baseline also runs end-to-end, but it trails QQQ in validation: 19.35% vs. 27.28% annualized return (−7.93% excess), so it should remain a baseline rather than a champion.
+
+Key remaining issues:
+
+1. **P0 — Locked-holdout access is not actually human-only.** Any local process can supply an arbitrary `--approval-id` and run the evaluator against the full QQQ file. The flag is an assertion, not an authorization boundary. This conflicts with the plan’s mechanical-access-control requirement. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:93)
+
+2. **P1 — Untrusted strategy code can forge the sandbox result.** The candidate strategy runs as root and has write access to `/output`; it can overwrite `latest_result.json` after the trusted harness writes it (for example via an exit hook). The host then accepts that file as the experiment result. [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:78)
+
+3. **P1 — Robustness evaluation does not enforce a clean trusted harness.** It verifies the current strategy hash but neither checks trusted-file changes nor executes from a verified evaluator snapshot. A locally modified `backtest.py` or `metrics.py` can therefore produce a seemingly valid robustness report. [robustness.py](/Users/ddev/Documents/Projects/autoquant/robustness.py:42)
+
+4. **P1 — Experiment and runtime budgets remain unenforced.** The 20-attempt/60-minute policy exists only in configuration and instructions. `record_result.py` never checks attempts, and `subprocess.run()` has no timeout, so an infinite strategy can consume the research session. [record_result.py](/Users/ddev/Documents/Projects/autoquant/record_result.py:35), [sandbox_runner.py](/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py:92)
+
+5. **P2 — Candidate eligibility is not tied to recorded evidence.** The hash check proves the loaded file matches the supplied hash, but locked evaluation does not require a matching recorded attempt, result artifact, passing tests, challenger criteria, or saved snapshot. Promotion likewise only requires any attempt event. [evaluation.py](/Users/ddev/Documents/Projects/autoquant/evaluation.py:125), [promote_candidate.py](/Users/ddev/Documents/Projects/autoquant/promote_candidate.py:15)
+
+Phase 5’s strategy rules are causal under the harness’s delayed execution model. Momentum, mean reversion, volatility targeting, combinations, regime filtering, and the exposure cap are reasonable single-asset research primitives. The major remaining work is strengthening the claimed trust boundaries—not adding more strategy families.
+
+::code-comment{title="[P0] Holdout approval is not enforced" body="An arbitrary local caller can invent an approval ID and access detailed locked results. Put locked data/evaluation in a separately permissioned process or require externally verified authorization." file="/Users/ddev/Documents/Projects/autoquant/evaluation.py" start=93 end=133 priority=0}
+
+::code-comment{title="[P1] Candidate can overwrite result artifact" body="The untrusted strategy has write access to /output, so it can forge latest_result.json. Keep the candidate container’s writable area separate from the trusted result writer." file="/Users/ddev/Documents/Projects/autoquant/sandbox_runner.py" start=78 end=92 priority=1}
+
+::code-comment{title="[P1] Robustness evaluator lacks harness verification" body="Verify the trusted worktree or run from a verified snapshot before producing a frozen-candidate robustness report." file="/Users/ddev/Documents/Projects/autoquant/robustness.py" start=42 end=50 priority=1}
