@@ -18,8 +18,11 @@ For each attempt:
    an unsuccessful change.
 6. Prepare the reviewer summary; do not promote or run a locked evaluation.
 
-Never edit trusted evaluator files, tests, data, the ledger, or run artifacts
-as part of research. Never download data, access a broker, run
+Never directly edit trusted evaluator files, tests, data, the ledger, or run
+artifacts as part of research. The approved `daily_controller.py` and
+`record_result.py` workflows may create append-only ledger events, source
+snapshots, results, and reviewer reports; do not modify those artifacts by any
+other means. Never download data, access a broker, run
 `evaluation.py`/`promote_candidate.py`, or access locked-holdout outputs.
 
 Respect the 20-attempt and 60-minute budget. The current strategy interface is
