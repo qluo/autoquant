@@ -688,9 +688,10 @@ Success criteria:
 
 ## Phase 5: Strategy Research Expansion
 
-Status: in progress. Controlled causal momentum, mean-reversion, and volatility
-targeting families are available while the trend baseline remains the default
-research strategy.
+Status: complete for the current single-asset scope. Controlled causal
+momentum, mean-reversion, volatility-targeting, factor-combination,
+regime-filter, and risk-constrained families are available while the trend
+baseline remains the default research strategy.
 `STRATEGY_FAMILY` selects the family for a frozen candidate run.
 
 After the promotion pipeline is reliable, add controlled strategy families.
@@ -706,6 +707,9 @@ Candidate research areas:
 - Portfolio construction and risk constraints.
 
 Each expansion should add tests and validation before giving the agent access to it.
+Cross-sectional ranking remains deferred until the strategy contract is expanded
+to accept a multi-asset universe; implementing it against one asset would not be
+a meaningful ranking strategy.
 Before claiming robustness, evaluate the exact frozen strategy and parameters
 on an out-of-universe panel that was never used for tuning:
 

@@ -6,6 +6,7 @@ MOMENTUM_LOOKBACK = 126
 MEAN_REVERSION_LOOKBACK = 20
 VOLATILITY_LOOKBACK = 20
 VOLATILITY_TARGET = 0.10
+REGIME_VOLATILITY_LIMIT = 0.20
 STRATEGY_FAMILY = "trend"
 
 
@@ -53,6 +54,12 @@ def generate_signals(bars: list[Bar]) -> list[float]:
         return generate_mean_reversion_signals(bars)
     if STRATEGY_FAMILY == "volatility_targeting":
         return generate_volatility_targeting_signals(bars)
+    if STRATEGY_FAMILY == "factor_combo":
+        return generate_factor_combo_signals(bars)
+    if STRATEGY_FAMILY == "regime_filter":
+        return generate_regime_filter_signals(bars)
+    if STRATEGY_FAMILY == "risk_constrained":
+        return generate_risk_constrained_signals(bars)
     raise ValueError(f"unknown strategy family: {STRATEGY_FAMILY}")
 
 
@@ -119,3 +126,39 @@ def generate_volatility_targeting_signals(
 def _sample_stddev(values: list[float]) -> float:
     average = sum(values) / len(values)
     return (sum((value - average) ** 2 for value in values) / (len(values) - 1)) ** 0.5
+
+
+def generate_factor_combo_signals(bars: list[Bar]) -> list[float]:
+    """Combine trend and momentum confirmations without adding leverage."""
+    trend = _generate_trend_signals(bars)
+    momentum = generate_momentum_signals(bars)
+    return [float(trend_value and momentum_value) for trend_value, momentum_value in zip(trend, momentum, strict=True)]
+
+
+def generate_regime_filter_signals(
+    bars: list[Bar], volatility_limit: float = REGIME_VOLATILITY_LIMIT
+) -> list[float]:
+    """Use the trend signal only in a lower-volatility trailing regime."""
+    if volatility_limit <= 0.0:
+        raise ValueError("volatility limit must be positive")
+    trend = _generate_trend_signals(bars)
+    closes = [bar.adjusted_close for bar in bars]
+    signals: list[float] = []
+    for index, trend_signal in enumerate(trend):
+        if index < VOLATILITY_LOOKBACK:
+            signals.append(0.0)
+            continue
+        returns = [
+            closes[offset] / closes[offset - 1] - 1.0
+            for offset in range(index - VOLATILITY_LOOKBACK + 1, index + 1)
+        ]
+        realized = _sample_stddev(returns) * (252.0**0.5)
+        signals.append(trend_signal if realized <= volatility_limit else 0.0)
+    return signals
+
+
+def generate_risk_constrained_signals(bars: list[Bar]) -> list[float]:
+    """Apply volatility targeting as an exposure cap to the trend signal."""
+    trend = _generate_trend_signals(bars)
+    risk_cap = generate_volatility_targeting_signals(bars)
+    return [min(trend_value, cap) for trend_value, cap in zip(trend, risk_cap, strict=True)]

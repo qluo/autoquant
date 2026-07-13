@@ -7,6 +7,9 @@ from data import Bar
 from strategy import (
     generate_mean_reversion_signals,
     generate_momentum_signals,
+    generate_factor_combo_signals,
+    generate_regime_filter_signals,
+    generate_risk_constrained_signals,
     generate_signals,
     generate_volatility_targeting_signals,
 )
@@ -59,6 +62,20 @@ class MomentumStrategyTests(unittest.TestCase):
             generate_volatility_targeting_signals(make_bars([100.0, 101.0]), 1)
         with self.assertRaisesRegex(ValueError, "positive"):
             generate_volatility_targeting_signals(make_bars([100.0, 101.0]), 2, 0.0)
+
+    def test_factor_combo_never_exceeds_component_exposure(self) -> None:
+        signals = generate_factor_combo_signals(make_bars([100.0] * 210))
+
+        self.assertTrue(all(signal in (0.0, 1.0) for signal in signals))
+
+    def test_regime_filter_rejects_invalid_limit(self) -> None:
+        with self.assertRaisesRegex(ValueError, "positive"):
+            generate_regime_filter_signals(make_bars([100.0] * 25), 0.0)
+
+    def test_risk_constrained_exposure_is_bounded(self) -> None:
+        signals = generate_risk_constrained_signals(make_bars([100.0 + index for index in range(220)]))
+
+        self.assertTrue(all(0.0 <= signal <= 1.0 for signal in signals))
 
 
 if __name__ == "__main__":
