@@ -19,8 +19,9 @@ For each attempt:
 4. Run the fixed tests and sandboxed backtest.
 5. Record the attempt, immutable source snapshot, and decision before reverting
    an unsuccessful change.
-6. Prepare the final reviewer report as HTML; do not promote or run a locked
-   evaluation.
+6. Prepare the final reviewer report as HTML. Include the fixed buy-and-hold
+   baseline's annual return, Sharpe, and maximum drawdown beside the candidate
+   metrics; do not promote or run a locked evaluation.
 
 Never directly edit trusted evaluator files, tests, data, the ledger, or run
 artifacts as part of research. The approved `daily_controller.py` and

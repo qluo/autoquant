@@ -13,7 +13,9 @@ routine research.
 2. Authorize one research run: ask the agent to read the playbook and experiment
    memory, propose one falsifiable hypothesis, evaluate it, record the result,
    and return the reviewer summary.
-3. Review the HTML report written under `runs/reports/` and the experiment history:
+3. Review the HTML report written under `runs/reports/`. It compares the
+   candidate with the fixed buy-and-hold baseline using annual return, Sharpe,
+   and maximum drawdown. Inspect experiment history with:
 
    ```bash
    uv run python memory.py summary

@@ -15,6 +15,7 @@ def write_summary(
 ) -> Path:
     result = json.loads(result_path.read_text())
     validation = result["metrics"]["validation"]
+    baseline = result["benchmark"]
     relative = result["relative_metrics"]
     costs = result["cost_scenarios"]
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -35,6 +36,9 @@ def write_summary(
         ("Validation annual return", f"{validation['annual_return']:.2%}"),
         ("Validation Sharpe", f"{validation['sharpe']:.3f}"),
         ("Validation maximum drawdown", f"{validation['max_drawdown']:.2%}"),
+        ("Baseline annual return", f"{baseline['annual_return']:.2%}"),
+        ("Baseline Sharpe", f"{baseline['sharpe']:.3f}"),
+        ("Baseline maximum drawdown", f"{baseline['max_drawdown']:.2%}"),
         ("Excess annual return", f"{relative['excess_annual_return']:.2%}"),
         ("Cost scenarios", json.dumps(costs, sort_keys=True)),
     )

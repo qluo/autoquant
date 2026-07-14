@@ -46,6 +46,8 @@ For each attempt:
 5. Run `uv run python sandbox_runner.py`.
 6. Inspect development/validation metrics, benchmark comparison, yearly/fold
    stability, 2/5/10 bps scenarios, risk-free provenance, and integrity hashes.
+   The final reviewer report must include the buy-and-hold baseline's annual
+   return, Sharpe, and maximum drawdown beside the candidate metrics.
 7. Record the attempt before reverting or committing, then prepare the final
    reviewer report as HTML:
 

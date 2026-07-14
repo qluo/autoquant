@@ -54,6 +54,7 @@ class DailyControllerTests(unittest.TestCase):
             "data": {"sha256": "data"},
             "integrity": {"strategy_sha256": "strategy"},
             "metrics": {"validation": {"annual_return": 0.1, "sharpe": 1.0, "max_drawdown": -0.2}},
+            "benchmark": {"annual_return": 0.08, "sharpe": 0.8, "max_drawdown": -0.25},
             "relative_metrics": {"excess_annual_return": 0.01},
             "cost_scenarios": {},
         }
@@ -68,3 +69,4 @@ class DailyControllerTests(unittest.TestCase):
 
         self.assertIn("<dt>Hypothesis</dt><dd>test</dd>", text)
         self.assertIn("<strong>Validation Sharpe:</strong> 1.000", text)
+        self.assertIn("<strong>Baseline Sharpe:</strong> 0.800", text)
