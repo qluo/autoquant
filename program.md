@@ -17,6 +17,9 @@ not the scope of the research objective.
    universe; QQQ is a sample single-asset dataset, not the default claim of
    generality. Select `universe_id` only from `universe_registry.py`; the
    robustness panel is confirmation-only and cannot be used for research.
+   If the hypothesis requires an unregistered asset or universe, stop and ask
+   for human approval of its data, benchmark, costs, and evaluation policy
+   before creating a manifest or running an experiment.
 2. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
 3. Run `uv run python -m unittest discover -s tests`.
 4. Build the local runner image with `docker build -t autoquant-research:latest .`.

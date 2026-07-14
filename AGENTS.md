@@ -17,6 +17,11 @@ For each attempt:
 2. Create a complete experiment manifest only after that approval.
    Select its `universe_id` only from `universe_registry.py`; never use the
    robustness panel as a research universe.
+
+If a hypothesis requires an asset or universe that is not in the registry,
+stop before creating a manifest or downloading data. Ask the human to approve
+the proposed universe, data source/version, benchmark, cost assumptions, and
+evaluation policy. Resume only after the approved registry entry exists.
 3. Make one focused strategy change only in an isolated workspace.
 4. Run the fixed tests and sandboxed backtest.
 5. Record the attempt, immutable source snapshot, and decision before reverting

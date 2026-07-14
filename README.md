@@ -66,6 +66,10 @@ Adding another universe requires human approval and a registry entry with its
 own pinned data, benchmark, cost, and evaluation policy. This is not yet a
 multi-asset or cross-sectional strategy system.
 
+If an agent's idea requires an unregistered asset or universe, it must pause
+and request that approval before creating a manifest, downloading data, or
+running an experiment.
+
 ## Recover an experiment's source
 
 Every recorded attempt stores an immutable `strategy.py` snapshot named by its
