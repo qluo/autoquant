@@ -15,12 +15,14 @@ routine research.
    FRED/ALFRED for macro themes, SEC EDGAR for fundamentals, and Google News
    for qualitative market context.
 
-   Once the agent has created an approved manifest, start the bounded research
-   run with:
+   Start an interactive agent session with the research assignment:
 
    ```bash
-   uv run python daily_controller.py --manifest manifests/new-research-run.json
+   codex --search -C . "Start an authorized AutoQuant research run. Follow AGENTS.md: read the playbook and experiment memory, explore approved idea sources, then propose one bounded falsifiable hypothesis and wait for my approval before running it."
    ```
+
+   The agent will propose the hypothesis first. After you approve that specific
+   proposal, it may create the manifest and run the bounded controller.
 3. The agent proposes one falsifiable hypothesis with a cited economic
    mechanism, intended universe, and rejection condition. News and external
    sources are hypothesis context only—not strategy data. If the idea requires
