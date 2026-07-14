@@ -7,6 +7,13 @@ Before an authorized research run, read `program.md`, `research_playbook.md`,
 and the experiment ledger with `uv run python memory.py summary`. Use the
 history to avoid repeating rejected ideas.
 
+For qualitative idea discovery, you may search Google News for current market,
+economic, and industry themes relevant to the intended universe. Record the
+outlet, publication date, URL, and the economic mechanism it suggests in the
+hypothesis or reviewer report. Google News is not an approved market-data or
+signal source: do not use article text, headlines, or publication timing as a
+backtest input without separate human approval of a timestamped news dataset.
+
 For each attempt:
 
 1. Propose one causal, falsifiable hypothesis with an intended universe and a

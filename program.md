@@ -20,6 +20,10 @@ not the scope of the research objective.
    If the hypothesis requires an unregistered asset or universe, stop and ask
    for human approval of its data, benchmark, costs, and evaluation policy
    before creating a manifest or running an experiment.
+   Google News may be used to discover qualitative themes, but record the
+   source URL, outlet, and publication date as hypothesis context. It is not
+   approved strategy data and cannot be used as a signal without separate
+   approval of a timestamped news dataset.
 2. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
 3. Run `uv run python -m unittest discover -s tests`.
 4. Build the local runner image with `docker build -t autoquant-research:latest .`.

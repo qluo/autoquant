@@ -28,6 +28,10 @@ or a specified multi-asset portfolio once the strategy interface supports it.
    generate, select, or refine an idea.
 6. Do not use the robustness panel to choose parameters. Evaluate only a
    frozen candidate on it.
+7. Google News may inform qualitative hypothesis discovery. Record consulted
+   articles and translate them into an economic mechanism; never treat a
+   headline or article timestamp as a causal input without an approved,
+   versioned news dataset.
 
 ## Hypothesis Template
 

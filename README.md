@@ -25,6 +25,11 @@ routine research.
 Each run is limited to 20 attempts or 60 minutes. A report is evidence for
 human review—not a promotion or locked-holdout evaluation.
 
+The agent may use Google News to discover qualitative market or economic themes
+for hypotheses. News is not approved strategy data: articles must be cited as
+context, and any news-based signal requires separate human approval of a
+timestamped dataset.
+
 ## First-time setup
 
 From `autoquant/`:
