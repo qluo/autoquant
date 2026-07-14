@@ -14,6 +14,13 @@ routine research.
    memory, then explores approved idea sources: SSRN/NBER for asset pricing,
    FRED/ALFRED for macro themes, SEC EDGAR for fundamentals, and Google News
    for qualitative market context.
+
+   Once the agent has created an approved manifest, start the bounded research
+   run with:
+
+   ```bash
+   uv run python daily_controller.py --manifest manifests/new-research-run.json
+   ```
 3. The agent proposes one falsifiable hypothesis with a cited economic
    mechanism, intended universe, and rejection condition. News and external
    sources are hypothesis context only—not strategy data. If the idea requires
