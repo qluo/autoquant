@@ -55,6 +55,21 @@ The controller supports the currently vetted single-asset families: `trend`,
 `momentum`, `mean_reversion`, `volatility_targeting`, `factor_combo`,
 `regime_filter`, and `risk_constrained`.
 
+## Recover an experiment's source
+
+Every recorded attempt stores an immutable `strategy.py` snapshot named by its
+SHA-256 hash. To recover the exact source reviewed for a candidate:
+
+```bash
+uv run python memory.py candidate <strategy_sha256>
+less runs/strategies/<strategy_sha256>.py
+sha256sum runs/strategies/<strategy_sha256>.py
+```
+
+The ledger event returned by the first command includes
+`strategy_snapshot_path`. The final checksum must match the event's
+`strategy_sha256` before relying on the snapshot.
+
 ## Safety boundary
 
 Each approved research universe has fixed development and validation periods,
