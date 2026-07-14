@@ -10,10 +10,19 @@ routine research.
 
 1. Open this repository in Codex. [`AGENTS.md`](AGENTS.md) supplies the
    persistent operating rules for every agent run.
-2. Authorize one research run: ask the agent to read the playbook and experiment
-   memory, propose one falsifiable hypothesis, evaluate it, record the result,
-   and return the reviewer summary.
-3. Review the HTML report written under `runs/reports/`. It compares the
+2. Authorize one research run. The agent reads the playbook and experiment
+   memory, then explores approved idea sources: SSRN/NBER for asset pricing,
+   FRED/ALFRED for macro themes, SEC EDGAR for fundamentals, and Google News
+   for qualitative market context.
+3. The agent proposes one falsifiable hypothesis with a cited economic
+   mechanism, intended universe, and rejection condition. News and external
+   sources are hypothesis context only—not strategy data. If the idea requires
+   an unregistered asset, universe, or dataset, the agent pauses for human
+   approval before creating a manifest or running an experiment.
+4. After approval, the agent evaluates the focused change in an isolated
+   workspace, records immutable artifacts, and writes an HTML report under
+   `runs/reports/`.
+5. Review that report. It compares the
    candidate with the fixed buy-and-hold baseline using annual return, Sharpe,
    and maximum drawdown. Inspect experiment history with:
 
@@ -24,16 +33,6 @@ routine research.
 
 Each run is limited to 20 attempts or 60 minutes. A report is evidence for
 human review—not a promotion or locked-holdout evaluation.
-
-The agent may use Google News to discover qualitative market or economic themes
-for hypotheses. News is not approved strategy data: articles must be cited as
-context, and any news-based signal requires separate human approval of a
-timestamped dataset.
-
-For research ideas, the agent should start with SSRN/NBER for finance and
-asset-pricing research, FRED/ALFRED for macro hypotheses, and SEC EDGAR for
-fundamental-data ideas. These sources still require approval and pinning before
-their data can become strategy inputs.
 
 ## First-time setup
 
