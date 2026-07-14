@@ -24,5 +24,8 @@ run.log
 .idea/
 .vscode/
 
+# Manifest
+manifests/
+
 # Comments
 implementation_plan_comments.md
