@@ -16,15 +16,17 @@ class ExperimentManifest:
     parameter_budget: str
     expected_failure_regime: str
     rejection_condition: str
+    universe_id: str = "qqq"
 
     @classmethod
     def from_path(cls, path: Path) -> "ExperimentManifest":
         payload = json.loads(path.read_text())
-        required = set(cls.__annotations__)
+        required = set(cls.__annotations__) - {"universe_id"}
         missing = sorted(required - set(payload))
-        extra = sorted(set(payload) - required)
+        extra = sorted(set(payload) - set(cls.__annotations__))
         if missing or extra:
             raise ValueError(f"manifest fields mismatch; missing={missing}, extra={extra}")
+        payload.setdefault("universe_id", "qqq")
         manifest = cls(**payload)
         if any(not value.strip() for value in asdict(manifest).values()):
             raise ValueError("manifest fields must not be empty")

@@ -14,5 +14,9 @@ Refreshing or adding an input requires human approval before a research batch:
 - start a new batch rather than treating a data refresh as evidence for an
   existing candidate.
 
+After approval, add the input to `universe_registry.py` with its identifier,
+ticker, data path, and benchmark. Do not add an asset reserved for robustness
+confirmation as a research universe.
+
 Cross-sectional or portfolio research additionally requires approved
 synchronized membership, benchmark, cost, and portfolio-construction policies.

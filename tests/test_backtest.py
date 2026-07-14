@@ -130,6 +130,7 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(payload["evaluation_mode"], "research")
         self.assertEqual(payload["metrics"]["validation"]["composite_score"], 0.12)
         self.assertEqual(payload["metrics"]["validation"]["num_trades"], 4)
+        self.assertEqual(payload["benchmark"]["name"], "buy_and_hold_QQQ")
         self.assertNotIn("holdout", payload["metrics"])
 
     def test_rejects_insufficient_evaluation_history(self) -> None:

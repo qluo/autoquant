@@ -59,6 +59,7 @@ TRUSTED_FILES = (
     "record_result.py",
     "robustness.py",
     "sandbox_runner.py",
+    "universe_registry.py",
     "validate.py",
     "pyproject.toml",
     "tests/test_backtest.py",
@@ -70,6 +71,7 @@ TRUSTED_FILES = (
     "tests/test_metrics.py",
     "tests/test_no_lookahead.py",
     "tests/test_strategy.py",
+    "tests/test_universe_registry.py",
     "uv.lock",
 )
 
@@ -423,7 +425,7 @@ def result_to_dict(
             "annual": result.annual_metrics,
             "validation_folds": result.validation_folds,
         },
-        "benchmark": {"name": "buy_and_hold_QQQ", **asdict(result.benchmark)},
+        "benchmark": {"name": f"buy_and_hold_{ticker}", **asdict(result.benchmark)},
         "relative_metrics": {
             "excess_annual_return": result.excess_annual_return,
             "tracking_error": result.tracking_error,

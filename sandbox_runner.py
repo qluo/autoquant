@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import csv
 import os
 import shutil
@@ -9,16 +10,17 @@ from pathlib import Path
 
 from backtest import LATEST_RESULT_JSON, TRUSTED_FILES, changed_files
 from config import VALIDATION_END
-from data import DEFAULT_CSV, RISK_FREE_CSV
+from data import DEFAULT_CSV, DEFAULT_TICKER, RISK_FREE_CSV
 
 
 IMAGE = "autoquant-research:latest"
 ROOT = Path(__file__).resolve().parent
 
 
-def _copy_research_data(destination: Path) -> None:
+def _copy_research_data(destination: Path, data_path: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
-    with DEFAULT_CSV.open(newline="") as source, (destination / "qqq.csv").open(
+    target_path = destination / data_path.name
+    with data_path.open(newline="") as source, target_path.open(
         "w", newline=""
     ) as target:
         reader = csv.DictReader(source)
@@ -27,25 +29,27 @@ def _copy_research_data(destination: Path) -> None:
         for row in reader:
             if row["Date"] <= VALIDATION_END.isoformat():
                 writer.writerow(row)
-    qqq_metadata = DEFAULT_CSV.with_suffix(".csv.meta.json")
-    if qqq_metadata.exists():
-        shutil.copy2(qqq_metadata, destination / qqq_metadata.name)
+    metadata = data_path.with_suffix(".csv.meta.json")
+    if metadata.exists():
+        shutil.copy2(metadata, destination / metadata.name)
     for path in (RISK_FREE_CSV, RISK_FREE_CSV.with_suffix(".csv.meta.json")):
         if path.exists():
             shutil.copy2(path, destination / path.name)
 
 
-def _stage_runner(stage: Path) -> None:
+def _stage_runner(stage: Path, data_path: Path) -> None:
     for relative_name in TRUSTED_FILES:
         source = ROOT / relative_name
         destination = stage / relative_name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
     shutil.copy2(ROOT / "strategy.py", stage / "strategy.py")
-    _copy_research_data(stage / "data")
+    _copy_research_data(stage / "data", data_path)
 
 
-def run_sandboxed_backtest() -> Path:
+def run_sandboxed_backtest(
+    data_path: Path = DEFAULT_CSV, ticker: str = DEFAULT_TICKER
+) -> Path:
     trusted_changes = [
         path
         for path in changed_files()
@@ -60,7 +64,7 @@ def run_sandboxed_backtest() -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="autoquant-stage-") as temp_dir:
         stage = Path(temp_dir)
-        _stage_runner(stage)
+        _stage_runner(stage, data_path)
         command = [
             "docker",
             "run",
@@ -88,7 +92,9 @@ def run_sandboxed_backtest() -> Path:
             "python",
             "backtest.py",
             "--data",
-            "data/qqq.csv",
+            f"data/{data_path.name}",
+            "--ticker",
+            ticker,
             "--output",
             "/output/latest_result.json",
         ]
@@ -101,7 +107,11 @@ def run_sandboxed_backtest() -> Path:
 
 
 def main() -> None:
-    output = run_sandboxed_backtest()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=Path, default=DEFAULT_CSV)
+    parser.add_argument("--ticker", default=DEFAULT_TICKER)
+    args = parser.parse_args()
+    output = run_sandboxed_backtest(args.data, args.ticker)
     print(f"wrote sandboxed result to {output}")
 
 

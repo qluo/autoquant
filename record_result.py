@@ -73,7 +73,7 @@ def append_result(
         "strategy_sha256": strategy_sha256,
         "commit": _git("rev-parse", "--short", "HEAD").strip(),
         "strategy_family": strategy_family,
-        "universe": "QQQ",
+        "universe": manifest.intended_universe if manifest else "unspecified",
         "parent_candidate": parent_candidate,
         "reason": reason,
         "config_sha256": _sha256(Path("config.py")),

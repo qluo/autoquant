@@ -55,6 +55,17 @@ The controller supports the currently vetted single-asset families: `trend`,
 `momentum`, `mean_reversion`, `volatility_targeting`, `factor_combo`,
 `regime_filter`, and `risk_constrained`.
 
+## Approved research universes
+
+The manifest selects an approved single-asset universe with `universe_id`.
+The registry currently contains only `qqq`; it maps the run to its pinned data,
+ticker, and matching buy-and-hold benchmark. The robustness-panel assets remain
+confirmation-only and must not be selected for research or tuning.
+
+Adding another universe requires human approval and a registry entry with its
+own pinned data, benchmark, cost, and evaluation policy. This is not yet a
+multi-asset or cross-sectional strategy system.
+
 ## Recover an experiment's source
 
 Every recorded attempt stores an immutable `strategy.py` snapshot named by its

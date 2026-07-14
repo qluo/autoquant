@@ -15,7 +15,8 @@ not the scope of the research objective.
 
 1. Read `research_playbook.md`. Select an economic mechanism and intended
    universe; QQQ is a sample single-asset dataset, not the default claim of
-   generality.
+   generality. Select `universe_id` only from `universe_registry.py`; the
+   robustness panel is confirmation-only and cannot be used for research.
 2. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
 3. Run `uv run python -m unittest discover -s tests`.
 4. Build the local runner image with `docker build -t autoquant-research:latest .`.

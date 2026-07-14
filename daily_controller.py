@@ -13,19 +13,20 @@ from experiment_manifest import ExperimentManifest
 from ledger import read_events
 from record_result import append_result
 from reviewer_summary import write_summary
+from universe_registry import ApprovedUniverse, get_universe
 
 
 ROOT = Path(__file__).resolve().parent
-REQUIRED_INPUTS = (
-    ROOT / "data/qqq.csv",
-    ROOT / "data/qqq.csv.meta.json",
+RISK_FREE_INPUTS = (
     ROOT / "data/risk_free_3m.csv",
     ROOT / "data/risk_free_3m.csv.meta.json",
 )
 
 
-def _validate_inputs() -> None:
-    missing = [str(path) for path in REQUIRED_INPUTS if not path.exists()]
+def _validate_inputs(universe: ApprovedUniverse) -> None:
+    data_path = ROOT / universe.data_path
+    required = (*RISK_FREE_INPUTS, data_path, data_path.with_suffix(".csv.meta.json"))
+    missing = [str(path) for path in required if not path.exists()]
     if missing:
         raise FileNotFoundError("missing approved inputs: " + ", ".join(missing))
 
@@ -56,7 +57,8 @@ def _run(command: list[str], cwd: Path, timeout: int) -> None:
 
 
 def run_daily_experiment(manifest: ExperimentManifest, dry_run: bool = False) -> Path | None:
-    _validate_inputs()
+    universe = get_universe(manifest.universe_id)
+    _validate_inputs(universe)
     if _remaining_attempts(manifest.batch_id) <= 0:
         raise RuntimeError(f"batch {manifest.batch_id} has exhausted its attempt budget")
     if dry_run:
@@ -74,7 +76,14 @@ def run_daily_experiment(manifest: ExperimentManifest, dry_run: bool = False) ->
             remaining = timeout - int(time.monotonic() - started)
             if remaining <= 0:
                 raise TimeoutError("daily research budget exhausted before sandbox run")
-            _run(["uv", "run", "python", "sandbox_runner.py"], workspace, remaining)
+            _run(
+                [
+                    "uv", "run", "python", "sandbox_runner.py",
+                    "--data", str(universe.data_path), "--ticker", universe.ticker,
+                ],
+                workspace,
+                remaining,
+            )
             shutil.copy2(workspace / "runs/latest_result.json", ROOT / "runs/latest_result.json")
             event_id = append_result(
                 "manual_review",

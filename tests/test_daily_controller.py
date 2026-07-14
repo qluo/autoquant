@@ -30,6 +30,7 @@ class DailyControllerTests(unittest.TestCase):
             manifest = ExperimentManifest.from_path(path)
 
         self.assertEqual(manifest.batch_id, "daily-1")
+        self.assertEqual(manifest.universe_id, "qqq")
 
     def test_remaining_attempts_counts_batch_events(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
