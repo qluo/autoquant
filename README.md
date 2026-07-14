@@ -30,6 +30,11 @@ for hypotheses. News is not approved strategy data: articles must be cited as
 context, and any news-based signal requires separate human approval of a
 timestamped dataset.
 
+For research ideas, the agent should start with SSRN/NBER for finance and
+asset-pricing research, FRED/ALFRED for macro hypotheses, and SEC EDGAR for
+fundamental-data ideas. These sources still require approval and pinning before
+their data can become strategy inputs.
+
 ## First-time setup
 
 From `autoquant/`:

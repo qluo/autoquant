@@ -32,6 +32,9 @@ or a specified multi-asset portfolio once the strategy interface supports it.
    articles and translate them into an economic mechanism; never treat a
    headline or article timestamp as a causal input without an approved,
    versioned news dataset.
+8. Use SSRN/NBER for finance and asset-pricing ideas, FRED/ALFRED for macro
+   hypotheses, and SEC EDGAR for fundamental-data ideas. A source of ideas is
+   not automatically an approved strategy input.
 
 ## Hypothesis Template
 

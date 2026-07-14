@@ -14,6 +14,11 @@ hypothesis or reviewer report. Google News is not an approved market-data or
 signal source: do not use article text, headlines, or publication timing as a
 backtest input without separate human approval of a timestamped news dataset.
 
+Use SSRN and NBER for finance and asset-pricing ideas, FRED/ALFRED for macro
+hypotheses, and SEC EDGAR for public-company fundamentals. Treat all of these
+as hypothesis sources unless their specific data series and availability policy
+have been approved and pinned for strategy use.
+
 For each attempt:
 
 1. Propose one causal, falsifiable hypothesis with an intended universe and a

@@ -24,6 +24,10 @@ not the scope of the research objective.
    source URL, outlet, and publication date as hypothesis context. It is not
    approved strategy data and cannot be used as a signal without separate
    approval of a timestamped news dataset.
+   Use SSRN/NBER for finance and asset-pricing research, FRED/ALFRED for macro
+   hypotheses, and SEC EDGAR for fundamental-data ideas. Do not use any new
+   series as strategy input until its source, revisions, and availability timing
+   are approved and pinned.
 2. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
 3. Run `uv run python -m unittest discover -s tests`.
 4. Build the local runner image with `docker build -t autoquant-research:latest .`.
