@@ -68,5 +68,5 @@ class DailyControllerTests(unittest.TestCase):
             text = output.read_text()
 
         self.assertIn("<dt>Hypothesis</dt><dd>test</dd>", text)
-        self.assertIn("<strong>Validation Sharpe:</strong> 1.000", text)
-        self.assertIn("<strong>Baseline Sharpe:</strong> 0.800", text)
+        self.assertIn("<th>Metric</th><th>Current run</th><th>Baseline</th>", text)
+        self.assertIn("<th scope=\"row\">Sharpe</th><td>1.000</td><td>0.800</td>", text)

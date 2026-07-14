@@ -30,15 +30,21 @@ def write_summary(
     details = "\n".join(
         f"<dt>{escape(label)}</dt><dd>{escape(value)}</dd>" for label, value in fields
     )
+    comparison_rows = (
+        ("Annual return", f"{validation['annual_return']:.2%}", f"{baseline['annual_return']:.2%}"),
+        ("Sharpe", f"{validation['sharpe']:.3f}", f"{baseline['sharpe']:.3f}"),
+        ("Maximum drawdown", f"{validation['max_drawdown']:.2%}", f"{baseline['max_drawdown']:.2%}"),
+    )
+    comparison_html = "\n".join(
+        "<tr>"
+        f"<th scope=\"row\">{escape(name)}</th>"
+        f"<td>{escape(current)}</td><td>{escape(baseline_value)}</td>"
+        "</tr>"
+        for name, current, baseline_value in comparison_rows
+    )
     evidence = (
         ("Data SHA-256", result["data"]["sha256"]),
         ("Strategy SHA-256", result["integrity"]["strategy_sha256"]),
-        ("Validation annual return", f"{validation['annual_return']:.2%}"),
-        ("Validation Sharpe", f"{validation['sharpe']:.3f}"),
-        ("Validation maximum drawdown", f"{validation['max_drawdown']:.2%}"),
-        ("Baseline annual return", f"{baseline['annual_return']:.2%}"),
-        ("Baseline Sharpe", f"{baseline['sharpe']:.3f}"),
-        ("Baseline maximum drawdown", f"{baseline['max_drawdown']:.2%}"),
         ("Excess annual return", f"{relative['excess_annual_return']:.2%}"),
         ("Cost scenarios", json.dumps(costs, sort_keys=True)),
     )
@@ -56,6 +62,11 @@ def write_summary(
                 f"<h1>Research summary: {escape(manifest.batch_id)}</h1>",
                 f"<p><strong>Decision:</strong> {escape(decision)}</p>",
                 f"<dl>{details}</dl>",
+                "<h2>Performance comparison</h2>",
+                "<table><thead><tr><th>Metric</th><th>Current run</th>"
+                "<th>Baseline</th></tr></thead><tbody>",
+                comparison_html,
+                "</tbody></table>",
                 "<h2>Evidence</h2>",
                 f"<ul>{evidence_html}</ul>",
                 "</body>",
