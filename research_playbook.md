@@ -153,14 +153,17 @@ Use the smallest credible experiment:
 
 1. Search the experiment memory for related hypotheses and failures.
 2. Select one family and complete the hypothesis template.
-3. Pre-declare a small parameter set or one parameter change. Do not expand it
+3. Present the complete hypothesis and rejection condition to the human, and
+   wait for explicit approval before creating the experiment manifest or
+   performing any backtest. A request for general research is not approval.
+4. Pre-declare a small parameter set or one parameter change. Do not expand it
    after seeing results within the same batch.
-4. Implement the causal rule in `strategy.py` and run the fixed test/backtest
+5. Implement the causal rule in `strategy.py` and run the fixed test/backtest
    workflow.
-5. Inspect development, visible research-period stability, costs, exposure,
+6. Inspect development, visible research-period stability, costs, exposure,
    benchmark-relative performance, and obvious failure regimes.
-6. Record the result—including a rejection—and revert unsuccessful changes.
-7. Freeze the source and parameters before the robustness-panel evaluation.
+7. Record the result—including a rejection—and revert unsuccessful changes.
+8. Freeze the source and parameters before the robustness-panel evaluation.
 
 ## What Not To Do
 

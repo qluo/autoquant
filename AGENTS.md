@@ -10,13 +10,17 @@ history to avoid repeating rejected ideas.
 For each attempt:
 
 1. Propose one causal, falsifiable hypothesis with an intended universe and a
-   pre-committed rejection condition.
-2. Create a complete experiment manifest before changing strategy logic.
+   pre-committed rejection condition. Present it to the human and obtain
+   explicit approval before creating a manifest, changing strategy logic, or
+   running any experiment. A general request to research or run an experiment
+   is not approval of a specific hypothesis.
+2. Create a complete experiment manifest only after that approval.
 3. Make one focused strategy change only in an isolated workspace.
 4. Run the fixed tests and sandboxed backtest.
 5. Record the attempt, immutable source snapshot, and decision before reverting
    an unsuccessful change.
-6. Prepare the reviewer summary; do not promote or run a locked evaluation.
+6. Prepare the final reviewer report as HTML; do not promote or run a locked
+   evaluation.
 
 Never directly edit trusted evaluator files, tests, data, the ledger, or run
 artifacts as part of research. The approved `daily_controller.py` and

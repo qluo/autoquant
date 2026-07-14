@@ -60,11 +60,11 @@ class DailyControllerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             result_path = root / "result.json"
-            output = root / "report.md"
+            output = root / "report.html"
             result_path.write_text(json.dumps(result))
             write_summary(manifest, result_path, "manual review", output)
 
             text = output.read_text()
 
-        self.assertIn("Hypothesis: test", text)
-        self.assertIn("Validation Sharpe: 1.000", text)
+        self.assertIn("<dt>Hypothesis</dt><dd>test</dd>", text)
+        self.assertIn("<strong>Validation Sharpe:</strong> 1.000", text)

@@ -86,7 +86,7 @@ def run_daily_experiment(manifest: ExperimentManifest, dry_run: bool = False) ->
                 manifest,
                 workspace / "strategy.py",
             )
-            output = ROOT / "runs/reports" / f"{manifest.batch_id}-{event_id}.md"
+            output = ROOT / "runs/reports" / f"{manifest.batch_id}-{event_id}.html"
             return write_summary(manifest, ROOT / "runs/latest_result.json", "manual review", output)
         finally:
             _run(["git", "worktree", "remove", "--force", str(workspace)], ROOT, timeout)

@@ -38,12 +38,16 @@ For each attempt:
    falsifiable economic hypothesis, intended universe, expected failure regime,
    and rejection condition. Do not hard-code market dates. Check
    `uv run python memory.py search --strategy-family <family>` first.
-2. Make one focused change to `strategy.py`.
-3. Run `uv run python -m unittest discover -s tests`.
-4. Run `uv run python sandbox_runner.py`.
-5. Inspect development/validation metrics, benchmark comparison, yearly/fold
+2. Present that complete hypothesis to the human and wait for explicit approval.
+   A general research-run request is not sufficient. Do not create the manifest,
+   edit strategy logic, or invoke the controller before approval.
+3. Make one focused change to `strategy.py`.
+4. Run `uv run python -m unittest discover -s tests`.
+5. Run `uv run python sandbox_runner.py`.
+6. Inspect development/validation metrics, benchmark comparison, yearly/fold
    stability, 2/5/10 bps scenarios, risk-free provenance, and integrity hashes.
-6. Record the attempt before reverting or committing:
+7. Record the attempt before reverting or committing, then prepare the final
+   reviewer report as HTML:
 
 ```bash
 uv run python record_result.py manual_review "hypothesis and result" --batch-id <batch_id>
@@ -52,7 +56,7 @@ uv run python record_result.py invalid "hypothesis and validation failure" --bat
 uv run python record_result.py crashed "hypothesis and crash reason" --batch-id <batch_id>
 ```
 
-7. Run `uv run python robustness.py --candidate <strategy_sha256>` only for a
+8. Run `uv run python robustness.py --candidate <strategy_sha256>` only for a
    frozen candidate that clears the acceptance criteria. Never tune against its
    robustness result.
 
