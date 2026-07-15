@@ -13,27 +13,21 @@ not the scope of the research objective.
 
 ## Setup
 
-1. Read `research_playbook.md`. Select an economic mechanism and intended
-   universe; QQQ is a sample single-asset dataset, not the default claim of
-   generality. Select `universe_id` only from `universe_registry.py`; the
-   robustness panel is confirmation-only and cannot be used for research.
-   If the hypothesis requires an unregistered asset or universe, stop and ask
-   for human approval of its data, benchmark, costs, and evaluation policy
-   before creating a manifest or running an experiment.
-   Google News may be used to discover qualitative themes, but record the
-   source URL, outlet, and publication date as hypothesis context. It is not
-   approved strategy data and cannot be used as a signal without separate
-   approval of a timestamped news dataset.
-   Use SSRN/NBER for finance and asset-pricing research, FRED/ALFRED for macro
-   hypotheses, and SEC EDGAR for fundamental-data ideas. Do not use any new
-   series as strategy input until its source, revisions, and availability timing
-   are approved and pinned.
-2. Confirm the pinned QQQ, FRED DGS3MO, and robustness-panel CSV files exist.
-3. Run `uv run python -m unittest discover -s tests`.
-4. Build the local runner image with `docker build -t autoquant-research:latest .`.
-5. Run `uv run python sandbox_runner.py` and record the baseline with a batch ID.
-6. Read `uv run python memory.py summary` and avoid already-rejected families.
-7. Stop after 20 attempts or 60 minutes, whichever comes first.
+1. Read `research_playbook.md` for hypothesis methodology and approved idea
+   sources. Select an economic mechanism and intended universe; the current
+   single-asset sample is not the default claim of generality.
+2. Select `universe_id` only from `universe_registry.py`; the robustness panel
+   is confirmation-only and cannot be used for research. If the hypothesis
+   requires an unregistered asset or universe, stop and ask for approval of its
+   data, benchmark, costs, and evaluation policy before creating a manifest or
+   running an experiment.
+3. Confirm the approved universe input, FRED DGS3MO, and robustness-panel CSV
+   files exist.
+4. Run `uv run python -m unittest discover -s tests`.
+5. Build the local runner image with `docker build -t autoquant-research:latest .`.
+6. Run `uv run python sandbox_runner.py` and record the baseline with a batch ID.
+7. Read `uv run python memory.py summary` and avoid already-rejected families.
+8. Stop after 20 attempts or 60 minutes, whichever comes first.
 
 ## File Boundary
 

@@ -58,11 +58,18 @@ approved local inputs; see [data_policy.md](data_policy.md).
 
 ## Agent workflow
 
-The detailed research protocol is in [program.md](program.md), and hypothesis
-design is in [research_playbook.md](research_playbook.md). The bounded
-execution component is `daily_controller.py`: after the agent creates a
-manifest, it validates inputs and budget, runs the selected vetted family in an
-isolated Git worktree, records immutable artifacts, and writes the report.
+The agent instructions are deliberately split by purpose:
+
+- [AGENTS.md](AGENTS.md): short, non-negotiable guardrails.
+- [program.md](program.md): the canonical execution protocol and acceptance
+  criteria.
+- [research_playbook.md](research_playbook.md): hypothesis methodology and
+  approved idea sources.
+
+The bounded execution component is `daily_controller.py`: after the agent
+creates a manifest, it validates inputs and budget, runs the selected vetted
+family in an isolated Git worktree, records immutable artifacts, and writes the
+report.
 
 ```bash
 uv run python daily_controller.py --manifest <manifest.json> --dry-run

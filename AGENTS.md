@@ -1,54 +1,24 @@
-# AutoQuant agent instructions
+# AutoQuant agent guardrails
 
-You are a constrained offline research agent. Produce auditable research
-findings; do not trade or promote strategies.
+Read `program.md`, `research_playbook.md`, and experiment memory before any
+authorized run. `program.md` is the canonical execution protocol;
+`research_playbook.md` is the canonical source for methodology and idea sources.
 
-Before an authorized research run, read `program.md`, `research_playbook.md`,
-and the experiment ledger with `uv run python memory.py summary`. Use the
-history to avoid repeating rejected ideas.
+Non-negotiable rules:
 
-For qualitative idea discovery, you may search Google News for current market,
-economic, and industry themes relevant to the intended universe. Record the
-outlet, publication date, URL, and the economic mechanism it suggests in the
-hypothesis or reviewer report. Google News is not an approved market-data or
-signal source: do not use article text, headlines, or publication timing as a
-backtest input without separate human approval of a timestamped news dataset.
-
-Use SSRN and NBER for finance and asset-pricing ideas, FRED/ALFRED for macro
-hypotheses, and SEC EDGAR for public-company fundamentals. Treat all of these
-as hypothesis sources unless their specific data series and availability policy
-have been approved and pinned for strategy use.
-
-For each attempt:
-
-1. Propose one causal, falsifiable hypothesis with an intended universe and a
-   pre-committed rejection condition. Present it to the human and obtain
-   explicit approval before creating a manifest, changing strategy logic, or
-   running any experiment. A general request to research or run an experiment
-   is not approval of a specific hypothesis.
-2. Create a complete experiment manifest only after that approval.
-   Select its `universe_id` only from `universe_registry.py`; never use the
-   robustness panel as a research universe.
-
-If a hypothesis requires an asset or universe that is not in the registry,
-stop before creating a manifest or downloading data. Ask the human to approve
-the proposed universe, data source/version, benchmark, cost assumptions, and
-evaluation policy. Resume only after the approved registry entry exists.
-3. Make one focused strategy change only in an isolated workspace.
-4. Run the fixed tests and sandboxed backtest.
-5. Record the attempt, immutable source snapshot, and decision before reverting
-   an unsuccessful change.
-6. Prepare the final reviewer report as HTML. Include the fixed buy-and-hold
-   baseline's annual return, Sharpe, and maximum drawdown beside the candidate
-   metrics; do not promote or run a locked evaluation.
-
-Never directly edit trusted evaluator files, tests, data, the ledger, or run
-artifacts as part of research. The approved `daily_controller.py` and
-`record_result.py` workflows may create append-only ledger events, source
-snapshots, results, and reviewer reports; do not modify those artifacts by any
-other means. Never download data, access a broker, run
-`evaluation.py`/`promote_candidate.py`, or access locked-holdout outputs.
-
-Respect the 20-attempt and 60-minute budget. The current strategy interface is
-single-asset; request human approval before proposing a multi-asset,
-cross-sectional, portfolio, data-source, cost-model, or policy change.
+1. Propose one bounded, falsifiable hypothesis and obtain explicit human
+   approval before creating a manifest, changing strategy logic, or running an
+   experiment. A general request to research is not approval of a hypothesis.
+2. Select `universe_id` only from `universe_registry.py`. If an idea requires an
+   unregistered universe, dataset, or policy change, stop and request approval
+   before creating a manifest, downloading data, or running an experiment.
+3. Make one focused change only in an isolated workspace. Do not use the
+   robustness panel for research or tuning.
+4. Use only the approved controller and recorder to create ledger events,
+   snapshots, results, and reviewer reports; do not edit those artifacts
+   directly.
+5. Never alter trusted evaluator files, tests, data, policy, cost assumptions,
+   or evaluation windows. Never access brokers, locked-holdout outputs,
+   `evaluation.py`, or `promote_candidate.py`.
+6. Respect the 20-attempt and 60-minute budget. The final report must compare
+   the candidate with the fixed buy-and-hold baseline.
