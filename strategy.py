@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from data import Bar
 
 MOMENTUM_LOOKBACK = 126
@@ -7,7 +9,15 @@ MEAN_REVERSION_LOOKBACK = 20
 VOLATILITY_LOOKBACK = 20
 VOLATILITY_TARGET = 0.10
 REGIME_VOLATILITY_LIMIT = 0.20
-STRATEGY_FAMILY = "trend"
+STRATEGY_FAMILY = "neural_trend_classifier"
+NEURAL_FEATURE_LOOKBACK = 200
+NEURAL_TARGET_HORIZON = 21
+NEURAL_REFIT_INTERVAL = 21
+NEURAL_HIDDEN_UNITS = 8
+NEURAL_EPOCHS = 12
+NEURAL_LEARNING_RATE = 0.03
+NEURAL_PROBABILITY_THRESHOLD = 0.55
+NEURAL_SEED = 7
 
 
 def _simple_moving_average(values: list[float], window: int) -> list[float | None]:
@@ -60,6 +70,8 @@ def generate_signals(bars: list[Bar]) -> list[float]:
         return generate_regime_filter_signals(bars)
     if STRATEGY_FAMILY == "risk_constrained":
         return generate_risk_constrained_signals(bars)
+    if STRATEGY_FAMILY == "neural_trend_classifier":
+        return generate_neural_trend_signals(bars)
     raise ValueError(f"unknown strategy family: {STRATEGY_FAMILY}")
 
 
@@ -162,3 +174,105 @@ def generate_risk_constrained_signals(bars: list[Bar]) -> list[float]:
     trend = _generate_trend_signals(bars)
     risk_cap = generate_volatility_targeting_signals(bars)
     return [min(trend_value, cap) for trend_value, cap in zip(trend, risk_cap, strict=True)]
+
+
+def _neural_features(closes: list[float], index: int) -> list[float]:
+    returns = [
+        closes[index] / closes[index - lookback] - 1.0
+        for lookback in (5, 21, 63, 126)
+    ]
+    volatility_returns = [
+        closes[offset] / closes[offset - 1] - 1.0
+        for offset in range(index - 20, index + 1)
+    ]
+    volatility = _sample_stddev(volatility_returns) * (252.0**0.5)
+    sma_50 = sum(closes[index - 49 : index + 1]) / 50
+    sma_200 = sum(closes[index - 199 : index + 1]) / 200
+    return returns + [volatility, closes[index] / sma_50 - 1.0, sma_50 / sma_200 - 1.0]
+
+
+def _sigmoid(value: float) -> float:
+    bounded = max(-30.0, min(30.0, value))
+    return 1.0 / (1.0 + math.exp(-bounded))
+
+
+def _initial_weight(position: int) -> float:
+    return (((position + 1) * 1103515245 + NEURAL_SEED) % 65_536) / 65_536.0 - 0.5
+
+
+def _fit_neural_classifier(
+    features: list[list[float]], labels: list[float]
+) -> tuple[list[float], list[float], list[list[float]], list[float], list[float], float]:
+    means = [sum(row[column] for row in features) / len(features) for column in range(7)]
+    scales = [
+        max(
+            1e-6,
+            (sum((row[column] - means[column]) ** 2 for row in features) / len(features))
+            ** 0.5,
+        )
+        for column in range(7)
+    ]
+    normalized = [
+        [(value - means[column]) / scales[column] for column, value in enumerate(row)]
+        for row in features
+    ]
+    hidden_weights = [
+        [_initial_weight(unit * 7 + column) for column in range(7)]
+        for unit in range(NEURAL_HIDDEN_UNITS)
+    ]
+    hidden_biases = [_initial_weight(56 + unit) for unit in range(NEURAL_HIDDEN_UNITS)]
+    output_weights = [_initial_weight(64 + unit) for unit in range(NEURAL_HIDDEN_UNITS)]
+    output_bias = _initial_weight(72)
+
+    for _ in range(NEURAL_EPOCHS):
+        for row, label in zip(normalized, labels, strict=True):
+            hidden = [
+                max(0.0, sum(weight * value for weight, value in zip(weights, row, strict=True)) + bias)
+                for weights, bias in zip(hidden_weights, hidden_biases, strict=True)
+            ]
+            probability = _sigmoid(sum(weight * value for weight, value in zip(output_weights, hidden, strict=True)) + output_bias)
+            error = probability - label
+            previous_output_weights = output_weights[:]
+            for unit, value in enumerate(hidden):
+                output_weights[unit] -= NEURAL_LEARNING_RATE * error * value
+            output_bias -= NEURAL_LEARNING_RATE * error
+            for unit, value in enumerate(hidden):
+                if value == 0.0:
+                    continue
+                gradient = error * previous_output_weights[unit]
+                for column, feature in enumerate(row):
+                    hidden_weights[unit][column] -= NEURAL_LEARNING_RATE * gradient * feature
+                hidden_biases[unit] -= NEURAL_LEARNING_RATE * gradient
+    return means, scales, hidden_weights, hidden_biases, output_weights, output_bias
+
+
+def _neural_probability(
+    features: list[float], model: tuple[list[float], list[float], list[list[float]], list[float], list[float], float]
+) -> float:
+    means, scales, hidden_weights, hidden_biases, output_weights, output_bias = model
+    normalized = [(value - mean) / scale for value, mean, scale in zip(features, means, scales, strict=True)]
+    hidden = [
+        max(0.0, sum(weight * value for weight, value in zip(weights, normalized, strict=True)) + bias)
+        for weights, bias in zip(hidden_weights, hidden_biases, strict=True)
+    ]
+    return _sigmoid(sum(weight * value for weight, value in zip(output_weights, hidden, strict=True)) + output_bias)
+
+
+def generate_neural_trend_signals(bars: list[Bar]) -> list[float]:
+    """Fit a causal, deterministic MLP to matured 21-session trend labels."""
+    closes = [bar.adjusted_close for bar in bars]
+    signals: list[float] = []
+    model: tuple[list[float], list[float], list[list[float]], list[float], list[float], float] | None = None
+    for index in range(len(closes)):
+        if index < NEURAL_FEATURE_LOOKBACK + NEURAL_TARGET_HORIZON:
+            signals.append(0.0)
+            continue
+        if model is None or (index - (NEURAL_FEATURE_LOOKBACK + NEURAL_TARGET_HORIZON)) % NEURAL_REFIT_INTERVAL == 0:
+            feature_rows = [_neural_features(closes, row) for row in range(NEURAL_FEATURE_LOOKBACK - 1, index - NEURAL_TARGET_HORIZON + 1)]
+            labels = [
+                float(closes[row + NEURAL_TARGET_HORIZON] > closes[row])
+                for row in range(NEURAL_FEATURE_LOOKBACK - 1, index - NEURAL_TARGET_HORIZON + 1)
+            ]
+            model = _fit_neural_classifier(feature_rows, labels)
+        signals.append(float(_neural_probability(_neural_features(closes, index), model) >= NEURAL_PROBABILITY_THRESHOLD))
+    return signals

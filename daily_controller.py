@@ -70,6 +70,20 @@ def _reviewed_strategy_source(source: Path) -> Path:
     return expected
 
 
+def _workspace_result_path(workspace: Path) -> Path:
+    candidates = (
+        workspace / "runs/latest_result.json",
+        workspace / "runs/sandbox/latest_result.json",
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    raise FileNotFoundError(
+        "sandbox completed without a result; checked: "
+        + ", ".join(str(path) for path in candidates)
+    )
+
+
 def _run(command: list[str], cwd: Path, timeout: int) -> None:
     subprocess.run(command, cwd=cwd, check=True, timeout=timeout)
 
@@ -109,7 +123,7 @@ def run_daily_experiment(
                 workspace,
                 remaining,
             )
-            shutil.copy2(workspace / "runs/latest_result.json", ROOT / "runs/latest_result.json")
+            shutil.copy2(_workspace_result_path(workspace), ROOT / "runs/latest_result.json")
             event_id = append_result(
                 "manual_review",
                 manifest.hypothesis,

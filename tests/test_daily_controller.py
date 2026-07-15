@@ -5,7 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daily_controller import _remaining_attempts, _require_primary_checkout, _reviewed_strategy_source
+from daily_controller import (
+    _remaining_attempts,
+    _require_primary_checkout,
+    _reviewed_strategy_source,
+    _workspace_result_path,
+)
 from experiment_manifest import ExperimentManifest
 from ledger import append_event
 from reviewer_summary import write_summary
@@ -75,6 +80,20 @@ class DailyControllerTests(unittest.TestCase):
 
             self.assertEqual(_clear_stale_sandbox_result(output_dir), output)
             self.assertFalse(output.exists())
+
+    def test_controller_uses_sandbox_result_when_canonical_result_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            sandbox_result = workspace / "runs/sandbox/latest_result.json"
+            sandbox_result.parent.mkdir(parents=True)
+            sandbox_result.write_text("result")
+
+            self.assertEqual(_workspace_result_path(workspace), sandbox_result)
+
+    def test_controller_reports_missing_workspace_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(FileNotFoundError, "sandbox completed"):
+                _workspace_result_path(Path(directory))
 
     def test_summary_includes_manifest_and_metrics(self) -> None:
         manifest = ExperimentManifest(

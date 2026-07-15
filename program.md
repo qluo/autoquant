@@ -48,7 +48,9 @@ uv run python daily_controller.py --manifest <manifest.json> --strategy-source s
 The controller copies only the primary checkout's `strategy.py` into its
 temporary workspace and snapshots that exact source in the attempt record.
 Without `--strategy-source`, it continues to select a pre-existing family from
-`HEAD`.
+`HEAD`. It accepts the sandbox's canonical result or its isolated
+`runs/sandbox/latest_result.json` output and records the result and report in
+the primary checkout; do not manually move either artifact.
 
 ML strategies are permitted, including small neural models, only if the
 approved hypothesis pre-commits the model class, causal feature set, fixed
