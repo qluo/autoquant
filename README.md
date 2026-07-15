@@ -43,6 +43,11 @@ routine research.
 Each run is limited to 20 attempts or 60 minutes. A report is evidence for
 human review—not a promotion or locked-holdout evaluation.
 
+If a baseline reports a stale or unwritable `runs/sandbox/latest_result.json`,
+rerun the approved sandbox command. That file is ephemeral output and the
+runner replaces it before each run; agents must not use `rm`, `chmod`, or
+`chown` on experiment artifacts.
+
 ## First-time setup
 
 From `autoquant/`:
@@ -79,6 +84,18 @@ temporary worktree and refuses to run from a linked or temporary worktree.
 uv run python daily_controller.py --manifest <manifest.json> --dry-run
 uv run python daily_controller.py --manifest <manifest.json>
 ```
+
+After the human approves its hypothesis, run an uncommitted, tested strategy
+implementation—including a bounded ML model—with:
+
+```bash
+uv run python daily_controller.py --manifest <manifest.json> --strategy-source strategy.py
+```
+
+The controller snapshots that exact source. ML must be deterministic and
+causal, use only approved local data, dependencies, and compute resources, and
+remain within the run's resource budget. New packages, a GPU-enabled runner,
+datasets, or hyperparameter searches need separate human approval.
 
 The controller supports the currently vetted single-asset families: `trend`,
 `momentum`, `mean_reversion`, `volatility_targeting`, `factor_combo`,

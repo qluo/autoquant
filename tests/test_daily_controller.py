@@ -5,10 +5,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daily_controller import _remaining_attempts, _require_primary_checkout
+from daily_controller import _remaining_attempts, _require_primary_checkout, _reviewed_strategy_source
 from experiment_manifest import ExperimentManifest
 from ledger import append_event
 from reviewer_summary import write_summary
+from sandbox_runner import _clear_stale_sandbox_result
 
 
 class DailyControllerTests(unittest.TestCase):
@@ -53,6 +54,27 @@ class DailyControllerTests(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "primary repository checkout"):
                 _require_primary_checkout(root)
+
+    def test_reviewed_strategy_source_must_be_primary_strategy_file(self) -> None:
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "strategy.py"
+            source.write_text("def generate_signals(bars): return []\n")
+            with patch("daily_controller.ROOT", root):
+                self.assertEqual(_reviewed_strategy_source(source), source)
+                with self.assertRaisesRegex(ValueError, "primary checkout"):
+                    _reviewed_strategy_source(root / "other.py")
+
+    def test_sandbox_replaces_stale_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            output = output_dir / "latest_result.json"
+            output.write_text("stale")
+
+            self.assertEqual(_clear_stale_sandbox_result(output_dir), output)
+            self.assertFalse(output.exists())
 
     def test_summary_includes_manifest_and_metrics(self) -> None:
         manifest = ExperimentManifest(

@@ -34,7 +34,30 @@ not the scope of the research objective.
 Edit only `strategy.py`. The sandbox stages that file with trusted code and only
 development/validation data. It has no network, no holdout/history mount, and
 limited CPU, memory, and process count. Do not edit source, data, tests, ledger,
-or run artifacts.
+or run artifacts. `runs/sandbox/latest_result.json` is the sole replaceable
+sandbox-output exception: if it is stale or unwritable, rerun the approved
+`sandbox_runner.py`; do not manually remove it or change its permissions.
+
+After the human approves the specific hypothesis, you may run the reviewed and
+tested uncommitted strategy source through the controller with:
+
+```bash
+uv run python daily_controller.py --manifest <manifest.json> --strategy-source strategy.py
+```
+
+The controller copies only the primary checkout's `strategy.py` into its
+temporary workspace and snapshots that exact source in the attempt record.
+Without `--strategy-source`, it continues to select a pre-existing family from
+`HEAD`.
+
+ML strategies are permitted, including small neural models, only if the
+approved hypothesis pre-commits the model class, causal feature set, fixed
+parameter budget, expected failure regime, and rejection condition. Training
+and inference must use only the prefix available at each signal time; use fixed
+seeds and only the compute resources approved for the run. The existing
+sandbox limits apply. Do not add dependencies, enable a GPU runner, download
+data, or run hyperparameter searches unless a human separately approves the
+dependency, compute, data, or policy change.
 
 ## Experiment Loop
 

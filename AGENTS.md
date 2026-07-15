@@ -12,14 +12,25 @@ Non-negotiable rules:
 2. Select `universe_id` only from `universe_registry.py`. If an idea requires an
    unregistered universe, dataset, or policy change, stop and request approval
    before creating a manifest, downloading data, or running an experiment.
-3. Make one focused change only in an isolated workspace. Do not use the
-   robustness panel for research or tuning.
+3. Make one focused change only in `strategy.py`. After explicit approval, the
+   controller may copy that reviewed source—including an uncommitted ML
+   implementation—into its isolated workspace with `--strategy-source
+   strategy.py`. Do not use the robustness panel for research or tuning.
 4. Use only the approved controller and recorder to create ledger events,
    snapshots, results, and reviewer reports; do not edit those artifacts
    directly. The controller creates its own temporary worktree; invoke it only
    from the primary checkout, never from an outer linked or temporary worktree.
+   `runs/sandbox/latest_result.json` is replaceable sandbox output: rerun the
+   approved sandbox runner if it is stale or unwritable; never manually use
+   `rm`, `chmod`, or `chown` on it.
 5. Never alter trusted evaluator files, tests, data, policy, cost assumptions,
    or evaluation windows. Never access brokers, locked-holdout outputs,
    `evaluation.py`, or `promote_candidate.py`.
 6. Respect the 20-attempt and 60-minute budget. The final report must compare
    the candidate with the fixed buy-and-hold baseline.
+7. ML models are allowed only when their model class, causal features, fixed
+   parameter budget, and rejection condition are stated in the approved
+   hypothesis. They must be deterministic and train only on the information
+   available at each signal time. Use only compute resources approved for the
+   run; a new dependency, GPU-enabled runner, external dataset, or
+   hyperparameter search requires separate human approval before implementation.

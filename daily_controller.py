@@ -61,11 +61,24 @@ def _set_strategy_family(path: Path, family: str) -> None:
     path.write_text(updated)
 
 
+def _reviewed_strategy_source(source: Path) -> Path:
+    expected = (ROOT / "strategy.py").resolve()
+    if source.resolve() != expected:
+        raise ValueError("reviewed strategy source must be the primary checkout's strategy.py")
+    if not expected.is_file():
+        raise FileNotFoundError(f"missing reviewed strategy source: {expected}")
+    return expected
+
+
 def _run(command: list[str], cwd: Path, timeout: int) -> None:
     subprocess.run(command, cwd=cwd, check=True, timeout=timeout)
 
 
-def run_daily_experiment(manifest: ExperimentManifest, dry_run: bool = False) -> Path | None:
+def run_daily_experiment(
+    manifest: ExperimentManifest,
+    dry_run: bool = False,
+    strategy_source: Path | None = None,
+) -> Path | None:
     universe = get_universe(manifest.universe_id)
     _validate_inputs(universe)
     if _remaining_attempts(manifest.batch_id) <= 0:
@@ -79,7 +92,10 @@ def run_daily_experiment(manifest: ExperimentManifest, dry_run: bool = False) ->
         workspace = Path(temporary) / "workspace"
         _run(["git", "worktree", "add", "--detach", str(workspace), "HEAD"], ROOT, timeout)
         try:
-            _set_strategy_family(workspace / "strategy.py", manifest.strategy_family)
+            if strategy_source is None:
+                _set_strategy_family(workspace / "strategy.py", manifest.strategy_family)
+            else:
+                shutil.copy2(_reviewed_strategy_source(strategy_source), workspace / "strategy.py")
             _run(["uv", "run", "python", "-m", "unittest", "discover", "-s", "tests"], workspace, timeout)
             _run(["docker", "build", "-t", "autoquant-research:latest", "."], workspace, timeout)
             remaining = timeout - int(time.monotonic() - started)
@@ -113,13 +129,22 @@ def run_daily_experiment(manifest: ExperimentManifest, dry_run: bool = False) ->
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run one bounded daily research experiment.")
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--strategy-source",
+        type=Path,
+        help="use the reviewed primary-checkout strategy.py, including uncommitted ML code",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     manifest_path = args.manifest.resolve()
     _require_primary_checkout()
     os.chdir(ROOT)
-    report = run_daily_experiment(ExperimentManifest.from_path(manifest_path), args.dry_run)
+    report = run_daily_experiment(
+        ExperimentManifest.from_path(manifest_path),
+        args.dry_run,
+        args.strategy_source.resolve() if args.strategy_source else None,
+    )
     if report is None:
         print("daily controller preflight passed")
     else:

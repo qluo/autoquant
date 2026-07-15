@@ -74,6 +74,17 @@ Pre-committed rejection condition: validation Sharpe does not improve by 0.10,
 Choose a family because its mechanism fits the intended universe. These are
 starting points, not a license to run a large parameter sweep.
 
+### Machine learning and neural models
+
+ML is a modelling approach, not an economic mechanism. Use it only when a
+pre-specified causal feature set and mechanism justify the model. For each
+approved ML experiment, state the model class, all features, training window,
+refit schedule, seed, parameter budget, compute requirement, and a simple
+non-ML benchmark. Fit each prediction using only data available at that signal
+time. Use only compute approved for the run; a GPU-enabled runner, new package,
+external dataset, or parameter search requires separate human approval before
+implementation.
+
 ### Trend and momentum
 
 Possible mechanisms: investor underreaction, slow-moving institutional flows,

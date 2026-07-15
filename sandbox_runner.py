@@ -15,6 +15,20 @@ from data import DEFAULT_CSV, DEFAULT_TICKER, RISK_FREE_CSV
 
 IMAGE = "autoquant-research:latest"
 ROOT = Path(__file__).resolve().parent
+SANDBOX_RESULT_NAME = "latest_result.json"
+
+
+def _clear_stale_sandbox_result(output_dir: Path) -> Path:
+    """Remove only the replaceable result produced by the sandbox itself."""
+    output = output_dir / SANDBOX_RESULT_NAME
+    try:
+        output.unlink(missing_ok=True)
+    except PermissionError as error:
+        raise RuntimeError(
+            "sandbox output directory is not writable; restore write access to "
+            f"{output_dir} through the approved maintenance process"
+        ) from error
+    return output
 
 
 def _copy_research_data(destination: Path, data_path: Path) -> None:
@@ -62,6 +76,7 @@ def run_sandboxed_backtest(
         )
     output_dir = ROOT / "runs" / "sandbox"
     output_dir.mkdir(parents=True, exist_ok=True)
+    output = _clear_stale_sandbox_result(output_dir)
     with tempfile.TemporaryDirectory(prefix="autoquant-stage-") as temp_dir:
         stage = Path(temp_dir)
         _stage_runner(stage, data_path)
@@ -99,7 +114,6 @@ def run_sandboxed_backtest(
             "/output/latest_result.json",
         ]
         subprocess.run(command, check=True)
-    output = output_dir / "latest_result.json"
     if not output.exists():
         raise RuntimeError("sandboxed backtest did not write a result")
     shutil.copy2(output, LATEST_RESULT_JSON)
