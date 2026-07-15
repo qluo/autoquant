@@ -13,7 +13,7 @@ not the scope of the research objective.
 
 ## Setup
 
-1. Read `research_playbook.md` for hypothesis methodology and approved idea
+1. Read `docs/research_playbook.md` for hypothesis methodology and approved idea
    sources. Select an economic mechanism and intended universe; the current
    single-asset sample is not the default claim of generality.
 2. Select `universe_id` only from `universe_registry.py`; the robustness panel
@@ -40,7 +40,7 @@ or run artifacts.
 
 For each attempt:
 
-1. Complete the hypothesis template in `research_playbook.md`: state one
+1. Complete the hypothesis template in `docs/research_playbook.md`: state one
    falsifiable economic hypothesis, intended universe, expected failure regime,
    and rejection condition. Do not hard-code market dates. Check
    `uv run python memory.py search --strategy-family <family>` first.

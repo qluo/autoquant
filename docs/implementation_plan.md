@@ -54,7 +54,6 @@ not be declared robust merely because it maximizes a visible backtest score.
 ```text
 autoquant/
   README.md
-  implementation_plan.md
   program.md
   Dockerfile
   pyproject.toml
@@ -76,6 +75,11 @@ autoquant/
     test_evaluation.py
     test_data.py
     test_no_lookahead.py
+  docs/
+    data_policy.md
+    implementation_plan.md
+    research_playbook.md
+    project_structure.md
 ```
 
 Initial file roles:

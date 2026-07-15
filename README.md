@@ -54,7 +54,7 @@ uv run python -m unittest discover -s tests
 ```
 
 The repository must be a Git checkout with Docker available. Research uses only
-approved local inputs; see [data_policy.md](data_policy.md).
+approved local inputs; see [the data policy](docs/data_policy.md).
 
 ## Agent workflow
 
@@ -63,8 +63,11 @@ The agent instructions are deliberately split by purpose:
 - [AGENTS.md](AGENTS.md): short, non-negotiable guardrails.
 - [program.md](program.md): the canonical execution protocol and acceptance
   criteria.
-- [research_playbook.md](research_playbook.md): hypothesis methodology and
+- [research_playbook.md](docs/research_playbook.md): hypothesis methodology and
   approved idea sources.
+
+For a map of the runtime modules, operating documents, and generated artifacts,
+see [the project structure guide](docs/project_structure.md).
 
 The bounded execution component is `daily_controller.py`: after the agent
 creates a manifest, it validates inputs and budget, runs the selected vetted
