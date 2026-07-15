@@ -17,6 +17,8 @@ def validate_bars(bars: list[Bar]) -> None:
             raise ValueError(f"bar at index {index} has invalid OHLC values")
         if bar.volume < 0:
             raise ValueError(f"bar at index {index} has negative volume")
+        if not (bar.low <= min(bar.open, bar.close) <= max(bar.open, bar.close) <= bar.high):
+            raise ValueError(f"bar at index {index} has inconsistent OHLC prices")
         if index > 0 and bar.date <= previous_date:
             raise ValueError("bars must be strictly increasing by date")
         previous_date = bar.date

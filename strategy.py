@@ -9,7 +9,7 @@ MEAN_REVERSION_LOOKBACK = 20
 VOLATILITY_LOOKBACK = 20
 VOLATILITY_TARGET = 0.10
 REGIME_VOLATILITY_LIMIT = 0.20
-STRATEGY_FAMILY = "neural_trend_classifier"
+STRATEGY_FAMILY = "deep_neural_trend_classifier"
 NEURAL_FEATURE_LOOKBACK = 200
 NEURAL_TARGET_HORIZON = 21
 NEURAL_REFIT_INTERVAL = 21
@@ -72,6 +72,8 @@ def generate_signals(bars: list[Bar]) -> list[float]:
         return generate_risk_constrained_signals(bars)
     if STRATEGY_FAMILY == "neural_trend_classifier":
         return generate_neural_trend_signals(bars)
+    if STRATEGY_FAMILY == "deep_neural_trend_classifier":
+        return generate_deep_neural_trend_signals(bars)
     raise ValueError(f"unknown strategy family: {STRATEGY_FAMILY}")
 
 
@@ -275,4 +277,115 @@ def generate_neural_trend_signals(bars: list[Bar]) -> list[float]:
             ]
             model = _fit_neural_classifier(feature_rows, labels)
         signals.append(float(_neural_probability(_neural_features(closes, index), model) >= NEURAL_PROBABILITY_THRESHOLD))
+    return signals
+
+
+def _fit_deep_neural_classifier(
+    features: list[list[float]], labels: list[float]
+) -> tuple[
+    list[float],
+    list[float],
+    list[list[float]],
+    list[float],
+    list[list[float]],
+    list[float],
+    list[float],
+    float,
+]:
+    means = [sum(row[column] for row in features) / len(features) for column in range(7)]
+    scales = [
+        max(
+            1e-6,
+            (sum((row[column] - means[column]) ** 2 for row in features) / len(features))
+            ** 0.5,
+        )
+        for column in range(7)
+    ]
+    normalized = [
+        [(value - means[column]) / scales[column] for column, value in enumerate(row)]
+        for row in features
+    ]
+    first_weights = [[_initial_weight(unit * 7 + column) for column in range(7)] for unit in range(6)]
+    first_biases = [_initial_weight(42 + unit) for unit in range(6)]
+    second_weights = [[_initial_weight(48 + unit * 6 + column) for column in range(6)] for unit in range(3)]
+    second_biases = [_initial_weight(66 + unit) for unit in range(3)]
+    output_weights = [_initial_weight(69 + unit) for unit in range(3)]
+    output_bias = _initial_weight(72)
+
+    for _ in range(NEURAL_EPOCHS):
+        for row, label in zip(normalized, labels, strict=True):
+            first_hidden = [
+                max(0.0, sum(weight * value for weight, value in zip(weights, row, strict=True)) + bias)
+                for weights, bias in zip(first_weights, first_biases, strict=True)
+            ]
+            second_hidden = [
+                max(0.0, sum(weight * value for weight, value in zip(weights, first_hidden, strict=True)) + bias)
+                for weights, bias in zip(second_weights, second_biases, strict=True)
+            ]
+            probability = _sigmoid(sum(weight * value for weight, value in zip(output_weights, second_hidden, strict=True)) + output_bias)
+            error = probability - label
+            previous_output_weights = output_weights[:]
+            previous_second_weights = [weights[:] for weights in second_weights]
+            second_gradients = [
+                error * previous_output_weights[unit] * float(value > 0.0)
+                for unit, value in enumerate(second_hidden)
+            ]
+            first_gradients = [
+                float(value > 0.0)
+                * sum(
+                    gradient * weights[unit]
+                    for gradient, weights in zip(second_gradients, previous_second_weights, strict=True)
+                )
+                for unit, value in enumerate(first_hidden)
+            ]
+            for unit, value in enumerate(second_hidden):
+                output_weights[unit] -= NEURAL_LEARNING_RATE * error * value
+            output_bias -= NEURAL_LEARNING_RATE * error
+            for unit, gradient in enumerate(second_gradients):
+                for column, value in enumerate(first_hidden):
+                    second_weights[unit][column] -= NEURAL_LEARNING_RATE * gradient * value
+                second_biases[unit] -= NEURAL_LEARNING_RATE * gradient
+            for unit, gradient in enumerate(first_gradients):
+                for column, value in enumerate(row):
+                    first_weights[unit][column] -= NEURAL_LEARNING_RATE * gradient * value
+                first_biases[unit] -= NEURAL_LEARNING_RATE * gradient
+    return means, scales, first_weights, first_biases, second_weights, second_biases, output_weights, output_bias
+
+
+def _deep_neural_probability(
+    features: list[float],
+    model: tuple[
+        list[float], list[float], list[list[float]], list[float], list[list[float]], list[float], list[float], float
+    ],
+) -> float:
+    means, scales, first_weights, first_biases, second_weights, second_biases, output_weights, output_bias = model
+    normalized = [(value - mean) / scale for value, mean, scale in zip(features, means, scales, strict=True)]
+    first_hidden = [
+        max(0.0, sum(weight * value for weight, value in zip(weights, normalized, strict=True)) + bias)
+        for weights, bias in zip(first_weights, first_biases, strict=True)
+    ]
+    second_hidden = [
+        max(0.0, sum(weight * value for weight, value in zip(weights, first_hidden, strict=True)) + bias)
+        for weights, bias in zip(second_weights, second_biases, strict=True)
+    ]
+    return _sigmoid(sum(weight * value for weight, value in zip(output_weights, second_hidden, strict=True)) + output_bias)
+
+
+def generate_deep_neural_trend_signals(bars: list[Bar]) -> list[float]:
+    """Fit a causal, deterministic two-hidden-layer MLP to matured trend labels."""
+    closes = [bar.adjusted_close for bar in bars]
+    signals: list[float] = []
+    model = None
+    for index in range(len(closes)):
+        if index < NEURAL_FEATURE_LOOKBACK + NEURAL_TARGET_HORIZON:
+            signals.append(0.0)
+            continue
+        if model is None or (index - (NEURAL_FEATURE_LOOKBACK + NEURAL_TARGET_HORIZON)) % NEURAL_REFIT_INTERVAL == 0:
+            feature_rows = [_neural_features(closes, row) for row in range(NEURAL_FEATURE_LOOKBACK - 1, index - NEURAL_TARGET_HORIZON + 1)]
+            labels = [
+                float(closes[row + NEURAL_TARGET_HORIZON] > closes[row])
+                for row in range(NEURAL_FEATURE_LOOKBACK - 1, index - NEURAL_TARGET_HORIZON + 1)
+            ]
+            model = _fit_deep_neural_classifier(feature_rows, labels)
+        signals.append(float(_deep_neural_probability(_neural_features(closes, index), model) >= NEURAL_PROBABILITY_THRESHOLD))
     return signals

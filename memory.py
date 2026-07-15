@@ -25,7 +25,8 @@ def summary() -> dict[str, object]:
 
 
 def search(
-    strategy_family: str | None, status: str | None, limit: int
+    strategy_family: str | None, status: str | None, limit: int,
+    hypothesis_fingerprint: str | None = None,
 ) -> list[dict[str, object]]:
     attempts = _attempts()
     filtered = [
@@ -33,6 +34,7 @@ def search(
         for event in attempts
         if (strategy_family is None or event["payload"].get("strategy_family") == strategy_family)
         and (status is None or event["payload"].get("status") == status)
+        and (hypothesis_fingerprint is None or event["payload"].get("hypothesis_fingerprint") == hypothesis_fingerprint)
     ]
     return filtered[-limit:]
 
@@ -55,6 +57,7 @@ def main() -> None:
     search_parser = subparsers.add_parser("search")
     search_parser.add_argument("--strategy-family")
     search_parser.add_argument("--status")
+    search_parser.add_argument("--hypothesis-fingerprint")
     search_parser.add_argument("--limit", type=int, default=20)
     candidate_parser = subparsers.add_parser("candidate")
     candidate_parser.add_argument("candidate_id")
@@ -63,7 +66,7 @@ def main() -> None:
     if args.command == "summary":
         payload: object = summary()
     elif args.command == "search":
-        payload = search(args.strategy_family, args.status, args.limit)
+        payload = search(args.strategy_family, args.status, args.limit, args.hypothesis_fingerprint)
     else:
         payload = candidate_history(args.candidate_id)
     print(json.dumps(payload, indent=2, sort_keys=True))

@@ -791,6 +791,78 @@ Resolved decisions:
 
 ## What is missing
 
+## Next phase: Baseline-ladder evaluation
+
+Implement a trusted, universe-versioned baseline ladder before making further
+candidate-advancement decisions. The evaluator and final report must compare a
+candidate with: buy-and-hold; an exposure-matched constant asset/cash
+allocation; fixed simple trend and volatility-target baselines; the frozen
+selection-version champion; a declared component-removed ablation; and a
+deterministic seeded timing placebo matched on exposure and turnover.
+
+Baseline parameters, random seed, champion snapshot, and comparison rules must
+live in trusted configuration, never in strategy code. The manifest must
+declare the new component so its ablation is mechanically reproducible. Require
+tests for each comparator and report the full ladder separately; do not reduce
+it to a new composite score. Advancement must demonstrate value beyond the
+exposure-matched and ablation baselines, while remaining credible against the
+champion and relevant fixed simple baselines.
+
+## Following phase: Economic attribution and mechanism consistency
+
+Extend manifests with a predeclared attribution plan: expected mechanism,
+fixed regime definitions, expected failure regimes, and the component expected
+to create value. Extend the trusted evaluator and reviewer report to decompose
+candidate performance into market-exposure, cash-yield, and timing contribution
+using the exposure-matched baseline ladder. Report regime contributions,
+top-event concentration, time-out-of-market effects, and evidence that the
+declared failure regime appears.
+
+The report must assign `mechanism_consistent`, `mechanism_uncertain`, or
+`mechanism_inconsistent`. A mechanism-inconsistent candidate cannot advance,
+even if aggregate metrics are strong. Regimes and attribution rules must be
+fixed before selection execution; they may not be invented after inspecting
+results.
+
+## Following phase: Research provenance and disconfirmation
+
+Require an immutable pre-execution research-provenance card before the
+controller reserves selection budget. It must record search queries; reviewed
+sources with URL, publication and access dates; supporting and contradictory
+evidence; whether the idea was known before selection-data inspection; and the
+mapping from mechanism to instrument, horizon, causal inputs, and expected
+failure regime. Require an explicit disconfirmation search, not only supportive
+literature or news.
+
+Retain metadata and concise notes rather than copying source content or treating
+web material as approved strategy data. Reviewer output must classify prior
+evidence as `mechanism_supported`, `mixed_evidence`, or
+`contradicted_by_prior_research`; strong contradictory evidence requires a
+specific human-reviewed explanation before advancement.
+
+## Following phase: Complete one-look holdout report
+
+Replace narrow holdout pass criteria with one predeclared complete disclosure:
+candidate versus buy-and-hold, frozen champion, and baseline ladder; fixed cost
+stress; turnover, trade count, exposure, beta, and drawdown sanity; fixed
+subperiod and execution-convention checks; uncertainty; mechanism consistency;
+and operational readiness. Compute and disclose all items in the single allowed
+lookup, then retire the holdout regardless of promotion, rejection, or an
+`inconclusive` decision. No follow-up diagnostic probes or redesign are allowed.
+
+## Post-promotion phase: Shadow and paper-trading lifecycle
+
+Keep AutoQuant broker-free. After a human promotes a frozen research candidate,
+export only its source snapshot, configuration, data version, and audit package
+to a separate human-operated environment. Require reproducibility, shadow signal
+generation on real timestamps, paper execution with order/fill/slippage/reject
+logs, and comparison of realized paper behavior with modeled assumptions.
+
+No backtest or holdout pass authorizes capital allocation. Any eventual
+small-capital deployment needs separate operational approval, fixed limits,
+monitoring, kill switches, and gradual scaling outside this repository. AutoQuant
+must never receive broker credentials or decide deployment size.
+
 ### 1. Summary of expectation of this auto agent
 
 AutoQuant should be runnable as a daily, autonomous research agent. For each

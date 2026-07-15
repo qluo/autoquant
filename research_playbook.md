@@ -52,6 +52,20 @@ Cost/turnover expectation:
 Pre-committed rejection condition:
 ```
 
+## Complexity card
+
+Every new manifest must include a `complexity_budget` with: `new_features`,
+`new_free_parameters`, `new_branches`, `parameter_values_considered`,
+`parameter_value_sources`, `expected_trade_count`, and
+`effective_degrees_of_freedom`. Declare each value before implementation. Treat
+effective degrees of freedom as a conservative audit count of independently
+chosen features, tunable values, and decision branches—not a formal statistical
+estimate. Historical manifests without the card are legacy records only.
+
+Within a predeclared material-performance equivalence band, prefer the candidate
+with fewer effective degrees of freedom, fewer branches/features, lower
+turnover, and the clearer economic mechanism.
+
 Example:
 
 ```text
@@ -81,9 +95,16 @@ pre-specified causal feature set and mechanism justify the model. For each
 approved ML experiment, state the model class, all features, training window,
 refit schedule, seed, parameter budget, compute requirement, and a simple
 non-ML benchmark. Fit each prediction using only data available at that signal
-time. Use only compute approved for the run; a GPU-enabled runner, new package,
-external dataset, or parameter search requires separate human approval before
-implementation.
+time. Use only compute approved for the run; a GPU-enabled runner other than
+the approved Colab workflow, new package, external dataset, or parameter search
+requires separate human approval before implementation.
+
+For an approved GPU training run, use the Google Colab CLI's ephemeral job
+mode. Treat the remote runtime as untrusted external compute: upload only the
+minimal reviewed code and approved development/validation inputs, avoid Drive
+and GCP mounts, and stop the session after the job. A Colab result is not a
+final AutoQuant result until the local controller evaluates and records the
+identical strategy and fixed model artifact.
 
 ### Trend and momentum
 
@@ -181,6 +202,10 @@ Use the smallest credible experiment:
 6. Inspect development, visible research-period stability, costs, exposure,
    benchmark-relative performance, and obvious failure regimes.
 7. Record the result—including a rejection—and revert unsuccessful changes.
+   A rejection applies to its declared universe, mechanism, implementation,
+   parameterization, and failure regime. Record whether it is an implementation
+   failure, a specific-hypothesis failure, or stronger repeated negative evidence;
+   do not generalize it to an entire family without that evidence.
 8. Freeze the source and parameters before the robustness-panel evaluation.
 
 ## What Not To Do

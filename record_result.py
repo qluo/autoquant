@@ -82,6 +82,21 @@ def append_result(
     }
     if manifest is not None:
         row["manifest"] = manifest.as_payload()
+        row.update(
+            {
+                "hypothesis_id": manifest.hypothesis_id,
+                "hypothesis_fingerprint": manifest.selection_fingerprint(),
+                "economic_mechanism": manifest.economic_mechanism,
+                "causal_inputs": manifest.causal_inputs,
+                "expected_failure_regime": manifest.expected_failure_regime,
+                "complexity_budget": manifest.complexity_budget,
+                "negative_evidence_strength": {
+                    "invalid": "implementation_failure",
+                    "crashed": "implementation_failure",
+                    "discarded": "specific_hypothesis_failure",
+                }.get(status, "pending_review"),
+            }
+        )
     if payload:
         ATTEMPTS_DIR.mkdir(parents=True, exist_ok=True)
         result_path = ATTEMPTS_DIR / f"{stem}.json"

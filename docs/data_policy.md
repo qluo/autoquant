@@ -14,9 +14,20 @@ Refreshing or adding an input requires human approval before a research batch:
 - start a new batch rather than treating a data refresh as evidence for an
   existing candidate.
 
+Every refresh must also record prior-snapshot hash/revision status, timezone,
+and session definition; validate positive prices/volume, OHLC consistency, and
+ordered unique dates; and flag unexpected gaps, stale bars, and extreme raw
+price jumps for human explanation. A flagged jump is not automatically invalid:
+it may represent a real event or a corporate action.
+
 After approval, add the input to `universe_registry.py` with its identifier,
 ticker, data path, and benchmark. Do not add an asset reserved for robustness
 confirmation as a research universe.
 
 Cross-sectional or portfolio research additionally requires approved
 synchronized membership, benchmark, cost, and portfolio-construction policies.
+
+Promotion-grade evidence requires a human-reviewed comparison with an approved
+independent vendor. Yahoo-derived data is research/prototyping evidence only.
+Point-in-time corporate-action reconciliation will accompany the future
+raw-price evaluation policy; adjusted-close history does not provide it.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
@@ -9,9 +10,9 @@ import tempfile
 import time
 from pathlib import Path
 
-from config import MAX_EXPERIMENT_ATTEMPTS, MAX_EXPERIMENT_MINUTES
+from config import MAX_CANDIDATES_ADVANCED, MAX_EFFECTIVE_HYPOTHESES, MAX_EXPERIMENT_ATTEMPTS, MAX_EXPERIMENT_MINUTES
 from experiment_manifest import ExperimentManifest
-from ledger import read_events
+from ledger import read_events, reserve_selection_candidate, reserve_selection_hypothesis
 from record_result import append_result
 from reviewer_summary import write_summary
 from universe_registry import ApprovedUniverse, get_universe
@@ -100,6 +101,14 @@ def run_daily_experiment(
     if dry_run:
         return None
 
+    reservation_id, created = reserve_selection_hypothesis(
+        selection_dataset_id=manifest.selection_dataset_id,
+        hypothesis_id=manifest.hypothesis_id,
+        fingerprint=manifest.selection_fingerprint(),
+        payload={"manifest": manifest.as_payload()},
+        max_effective_hypotheses=MAX_EFFECTIVE_HYPOTHESES,
+    )
+
     timeout = MAX_EXPERIMENT_MINUTES * 60
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="autoquant-daily-") as temporary:
@@ -119,9 +128,16 @@ def run_daily_experiment(
                 [
                     "uv", "run", "python", "sandbox_runner.py",
                     "--data", str(universe.data_path), "--ticker", universe.ticker,
+                    "--selection-reservation-id", str(reservation_id),
                 ],
                 workspace,
                 remaining,
+            )
+            strategy_sha256 = hashlib.sha256((workspace / "strategy.py").read_bytes()).hexdigest()
+            candidate_id, candidate_created = reserve_selection_candidate(
+                selection_dataset_id=manifest.selection_dataset_id,
+                candidate_id=strategy_sha256,
+                max_candidates_advanced=MAX_CANDIDATES_ADVANCED,
             )
             shutil.copy2(_workspace_result_path(workspace), ROOT / "runs/latest_result.json")
             event_id = append_result(
@@ -130,7 +146,9 @@ def run_daily_experiment(
                 manifest.batch_id,
                 manifest.strategy_family,
                 None,
-                "daily controller completed fixed research evaluation",
+                f"selection reservation {reservation_id} "
+                f"({'new' if created else 'existing'}), candidate reservation {candidate_id} "
+                f"({'new' if candidate_created else 'existing'}); controller completed fixed research evaluation",
                 manifest,
                 workspace / "strategy.py",
             )

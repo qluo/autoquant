@@ -5,10 +5,46 @@ import unittest
 from pathlib import Path
 import sqlite3
 
-from ledger import append_event, count_events, export_attempts_tsv, read_events, reserve_holdout_lookup
+from ledger import append_event, count_events, export_attempts_tsv, read_events, reserve_holdout_lookup, reserve_selection_candidate, reserve_selection_hypothesis
 
 
 class LedgerTests(unittest.TestCase):
+    def test_selection_budget_counts_unique_fingerprints_globally(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "ledger.sqlite"
+            first, created = reserve_selection_hypothesis(
+                selection_dataset_id="selection-v1", hypothesis_id="idea-1",
+                fingerprint="fingerprint-1", payload={}, max_effective_hypotheses=1,
+                path=database,
+            )
+            repeated, repeated_created = reserve_selection_hypothesis(
+                selection_dataset_id="selection-v1", hypothesis_id="idea-1b",
+                fingerprint="fingerprint-1", payload={}, max_effective_hypotheses=1,
+                path=database,
+            )
+            self.assertTrue(created)
+            self.assertFalse(repeated_created)
+            self.assertEqual(first, repeated)
+            with self.assertRaisesRegex(RuntimeError, "retired"):
+                reserve_selection_hypothesis(
+                    selection_dataset_id="selection-v1", hypothesis_id="idea-2",
+                    fingerprint="fingerprint-2", payload={}, max_effective_hypotheses=1,
+                    path=database,
+                )
+
+    def test_selection_candidate_limit_is_enforced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "ledger.sqlite"
+            reserve_selection_candidate(
+                selection_dataset_id="selection-v1", candidate_id="candidate-1",
+                max_candidates_advanced=1, path=database,
+            )
+            with self.assertRaisesRegex(RuntimeError, "candidate-advance"):
+                reserve_selection_candidate(
+                    selection_dataset_id="selection-v1", candidate_id="candidate-2",
+                    max_candidates_advanced=1, path=database,
+                )
+
     def test_holdout_budget_is_enforced_by_batch_and_lifetime(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "ledger.sqlite"

@@ -142,6 +142,95 @@ def reserve_holdout_lookup(
     return int(cursor.lastrowid)
 
 
+def reserve_selection_hypothesis(
+    *,
+    selection_dataset_id: str,
+    hypothesis_id: str,
+    fingerprint: str,
+    payload: dict[str, Any],
+    max_effective_hypotheses: int,
+    path: Path = LEDGER_DB,
+) -> tuple[int, bool]:
+    """Reserve one globally budgeted conceptual hypothesis before selection."""
+    timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
+    with _connection(path) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        rows = connection.execute(
+            "SELECT id, payload_json FROM events WHERE event_type = 'selection_reservation'"
+        ).fetchall()
+        reservations = [
+            (event_id, json.loads(payload_json)) for event_id, payload_json in rows
+        ]
+        for event_id, prior in reservations:
+            if (
+                prior.get("selection_dataset_id") == selection_dataset_id
+                and prior.get("fingerprint") == fingerprint
+            ):
+                return int(event_id), False
+        used = sum(
+            prior.get("selection_dataset_id") == selection_dataset_id
+            for _, prior in reservations
+        )
+        if used >= max_effective_hypotheses:
+            raise RuntimeError(
+                f"selection dataset {selection_dataset_id} is retired: "
+                f"effective-hypothesis budget {max_effective_hypotheses} exhausted"
+            )
+        reservation = {
+            **payload,
+            "selection_dataset_id": selection_dataset_id,
+            "hypothesis_id": hypothesis_id,
+            "fingerprint": fingerprint,
+        }
+        cursor = connection.execute(
+            """
+            INSERT INTO events (created_at_utc, event_type, candidate_id, payload_json)
+            VALUES (?, 'selection_reservation', ?, ?)
+            """,
+            (timestamp, fingerprint, json.dumps(reservation, sort_keys=True)),
+        )
+    return int(cursor.lastrowid), True
+
+
+def reserve_selection_candidate(
+    *,
+    selection_dataset_id: str,
+    candidate_id: str,
+    max_candidates_advanced: int,
+    path: Path = LEDGER_DB,
+) -> tuple[int, bool]:
+    timestamp = dt.datetime.now(dt.timezone.utc).isoformat()
+    with _connection(path) as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        rows = connection.execute(
+            "SELECT id, candidate_id, payload_json FROM events WHERE event_type = 'selection_candidate'"
+        ).fetchall()
+        matching = [
+            (event_id, prior_candidate, json.loads(payload_json))
+            for event_id, prior_candidate, payload_json in rows
+        ]
+        for event_id, prior_candidate, prior in matching:
+            if prior.get("selection_dataset_id") == selection_dataset_id and prior_candidate == candidate_id:
+                return int(event_id), False
+        used = sum(
+            prior.get("selection_dataset_id") == selection_dataset_id
+            for _, _, prior in matching
+        )
+        if used >= max_candidates_advanced:
+            raise RuntimeError(
+                f"selection dataset {selection_dataset_id} has reached its "
+                f"candidate-advance limit {max_candidates_advanced}"
+            )
+        cursor = connection.execute(
+            """
+            INSERT INTO events (created_at_utc, event_type, candidate_id, payload_json)
+            VALUES (?, 'selection_candidate', ?, ?)
+            """,
+            (timestamp, candidate_id, json.dumps({"selection_dataset_id": selection_dataset_id}, sort_keys=True)),
+        )
+    return int(cursor.lastrowid), True
+
+
 def export_attempts_tsv(path: Path = LEDGER_DB, output: Path = RESULTS_TSV) -> Path:
     fieldnames = [
         "event_id",

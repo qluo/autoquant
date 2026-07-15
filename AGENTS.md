@@ -32,5 +32,36 @@ Non-negotiable rules:
    parameter budget, and rejection condition are stated in the approved
    hypothesis. They must be deterministic and train only on the information
    available at each signal time. Use only compute resources approved for the
-   run; a new dependency, GPU-enabled runner, external dataset, or
+   run; a new dependency, GPU-enabled runner other than the approved Colab
+   workflow below, external dataset, or
    hyperparameter search requires separate human approval before implementation.
+8. Approved deep-learning training may use the installed Google Colab CLI and
+   `colab-operator` skill with one ephemeral GPU job. Send only the reviewed
+   strategy, minimal job code, and approved development/validation inputs; do
+   not send `.git`, `runs/`, ledger data, holdout inputs, credentials, or mount
+   Drive/GCP services. Stop the session when the job ends. Colab output is
+   exploratory compute only: the local controller remains the only way to
+   create an attempt record and final report.
+9. Treat visible selection evidence as finite. `qqq_selection_v1` permits at
+   most 50 effective hypothesis fingerprints and 3 advanced candidates. The
+   controller reserves the fingerprint before selection execution; failed runs
+   still consume budget. Do not inspect selection metrics through direct sandbox
+   runs, manual tests, or related parameter variants. When the budget is
+   exhausted, the selection dataset is retired until a human approves a new,
+   pinned dataset version and period.
+10. Every new hypothesis must carry the structured complexity card in
+    `research_playbook.md`. Do not hide multiple features, branches, or tuning
+    choices inside one “focused” change. When evidence is materially equivalent,
+    prefer the simpler candidate.
+11. Neural models are prohibited by default for the current single-asset daily
+    dataset. An exception needs explicit human approval with a sample-size and
+    complexity justification. Any approved ML run must use walk-forward
+    retraining, prefix-only scaling/imputation, declared label purge/embargo,
+    fixed multiple seeds, missing-data behavior, feature timestamps, and a
+    linear/logistic comparator. Do not select the best seed or model variant.
+12. A locked-holdout version permits one full disclosure only. After any lookup,
+    pass or fail, treat it as retired for final claims and do not use its result
+    to refine another candidate.
+    Predeclare the complete holdout report before opening it; compare the frozen
+    champion and fixed baselines, not buy-and-hold alone, and do not run
+    follow-up diagnostics after disclosure.

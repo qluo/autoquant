@@ -4,6 +4,7 @@ import hashlib
 import json
 import argparse
 import subprocess
+import random
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -102,10 +103,12 @@ class BacktestResult:
     information_ratio: float
     beta: float
     correlation: float
+    excess_annual_return_ci_95: tuple[float, float]
     average_exposure: float
     percent_days_invested: float
     annual_metrics: dict[str, dict[str, float]]
     validation_folds: dict[str, dict[str, float]]
+    execution_stress: dict[str, dict[str, float]]
     cost_scenarios: dict[str, dict[str, float]]
     risk_free: dict[str, object]
     start_date: str
@@ -144,6 +147,25 @@ def _daily_strategy_returns(
         previous_position = position
 
     return returns, turnovers, effective_positions
+
+
+def _next_open_strategy_returns(
+    bars: list[Bar], signals: list[float], transaction_cost_bps: float
+) -> tuple[list[float], list[float]]:
+    """Signal after close; enter/exit at next adjusted open."""
+    returns: list[float] = []
+    turnovers: list[float] = []
+    previous = 0.0
+    for index in range(1, len(bars)):
+        adjusted_open = bars[index].open * bars[index].adjusted_close / bars[index].close
+        overnight = adjusted_open / bars[index - 1].adjusted_close - 1.0
+        intraday = bars[index].adjusted_close / adjusted_open - 1.0
+        position = signals[index - 1]
+        turnover = abs(position - previous)
+        returns.append(previous * overnight + position * intraday - turnover * transaction_cost_bps / 10_000.0)
+        turnovers.append(turnover)
+        previous = position
+    return returns, turnovers
 
 
 def _metric_summary(
@@ -187,6 +209,24 @@ def _metric_summary(
 
 def _select(values: list[float], indices: list[int]) -> list[float]:
     return [values[index] for index in indices]
+
+
+def _block_bootstrap_excess_ci(
+    candidate: list[float], benchmark: list[float], block_size: int = 20, samples: int = 400
+) -> tuple[float, float]:
+    excess = [left - right for left, right in zip(candidate, benchmark, strict=True)]
+    if not excess:
+        return 0.0, 0.0
+    generator = random.Random(0)
+    estimates: list[float] = []
+    for _ in range(samples):
+        draw: list[float] = []
+        while len(draw) < len(excess):
+            start = generator.randrange(len(excess))
+            draw.extend(excess[start : start + block_size])
+        estimates.append(annualized_return(draw[: len(excess)]))
+    estimates.sort()
+    return estimates[int(samples * 0.025)], estimates[int(samples * 0.975)]
 
 
 def run_backtest(
@@ -245,6 +285,13 @@ def run_backtest(
         }
 
     validation_positions = _select(positions, validation_indices)
+    open_returns, open_turnovers = _next_open_strategy_returns(
+        research_bars, signals, transaction_cost_bps
+    )
+    open_validation = _metric_summary(
+        _select(open_returns, validation_indices), _select(open_turnovers, validation_indices),
+        _select(interval_risk_free, validation_indices),
+    )
     annual_metrics: dict[str, dict[str, float]] = {}
     for year in sorted({return_dates[index].year for index in validation_indices}):
         year_indices = [
@@ -283,6 +330,11 @@ def run_backtest(
             "sharpe": fold_summary.sharpe,
             "max_drawdown": fold_summary.max_drawdown,
             "composite_score": fold_summary.composite_score,
+            "benchmark_annual_return": annualized_return(
+                _select(benchmark_returns, fold_indices)
+            ),
+            "excess_annual_return": fold_summary.annual_return
+            - annualized_return(_select(benchmark_returns, fold_indices)),
         }
 
     return BacktestResult(
@@ -314,6 +366,9 @@ def run_backtest(
         ),
         beta=beta(validation_returns, validation_benchmark_returns),
         correlation=correlation(validation_returns, validation_benchmark_returns),
+        excess_annual_return_ci_95=_block_bootstrap_excess_ci(
+            validation_returns, validation_benchmark_returns
+        ),
         average_exposure=(
             sum(validation_positions) / len(validation_positions)
             if validation_positions
@@ -327,6 +382,18 @@ def run_backtest(
         ),
         annual_metrics=annual_metrics,
         validation_folds=validation_folds,
+        execution_stress={
+            "next_close_delayed": {
+                "annual_return": _metric_summary(validation_returns, validation_turnovers, _select(interval_risk_free, validation_indices)).annual_return,
+                "sharpe": _metric_summary(validation_returns, validation_turnovers, _select(interval_risk_free, validation_indices)).sharpe,
+                "max_drawdown": _metric_summary(validation_returns, validation_turnovers, _select(interval_risk_free, validation_indices)).max_drawdown,
+            },
+            "next_open": {
+                "annual_return": open_validation.annual_return,
+                "sharpe": open_validation.sharpe,
+                "max_drawdown": open_validation.max_drawdown,
+            },
+        },
         cost_scenarios=cost_scenarios,
         risk_free=risk_free_metadata,
         start_date=str(research_bars[0].date),
@@ -424,6 +491,7 @@ def result_to_dict(
             "percent_days_invested": result.percent_days_invested,
             "annual": result.annual_metrics,
             "validation_folds": result.validation_folds,
+            "execution_stress": result.execution_stress,
         },
         "benchmark": {"name": f"buy_and_hold_{ticker}", **asdict(result.benchmark)},
         "relative_metrics": {
@@ -432,6 +500,7 @@ def result_to_dict(
             "information_ratio": result.information_ratio,
             "beta": result.beta,
             "correlation": result.correlation,
+            "excess_annual_return_ci_95": result.excess_annual_return_ci_95,
         },
         "cost_scenarios": result.cost_scenarios,
         "risk_free": result.risk_free,

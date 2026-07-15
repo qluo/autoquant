@@ -67,6 +67,7 @@ def download_bars(
     quote = result["indicators"]["quote"][0]
     adjclose = result["indicators"].get("adjclose", [{}])[0].get("adjclose")
 
+    prior_sha256 = hashlib.sha256(output_path.read_bytes()).hexdigest() if output_path.exists() else None
     # Normalize provider-specific JSON into a stable local CSV contract.
     with output_path.open("w", newline="") as file:
         writer = csv.writer(file)
@@ -106,6 +107,9 @@ def download_bars(
         "calendar": "provider_trading_sessions",
         "adjustment": "Yahoo Finance adjusted close",
         "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+        "replaces_sha256": prior_sha256,
+        "vendor_revision_detected": prior_sha256 is not None and prior_sha256 != hashlib.sha256(output_path.read_bytes()).hexdigest(),
+        "timezone": "UTC provider timestamps; daily exchange session date",
     }
     metadata_path(output_path).write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n"

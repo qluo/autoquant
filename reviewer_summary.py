@@ -17,6 +17,8 @@ def write_summary(
     validation = result["metrics"]["validation"]
     baseline = result["benchmark"]
     relative = result["relative_metrics"]
+    folds = result["metrics"].get("validation_folds", {})
+    execution = result["metrics"].get("execution_stress", {})
     costs = result["cost_scenarios"]
     output.parent.mkdir(parents=True, exist_ok=True)
     fields = (
@@ -42,11 +44,19 @@ def write_summary(
         "</tr>"
         for name, current, baseline_value in comparison_rows
     )
+    fold_excess = [fold.get("excess_annual_return", 0.0) for fold in folds.values()]
+    interval = relative.get("excess_annual_return_ci_95", (0.0, 0.0))
     evidence = (
         ("Data SHA-256", result["data"]["sha256"]),
         ("Strategy SHA-256", result["integrity"]["strategy_sha256"]),
         ("Excess annual return", f"{relative['excess_annual_return']:.2%}"),
+        ("95% block-bootstrap excess-return interval",
+         " to ".join(f"{value:.2%}" for value in interval)),
+        ("Positive selection folds", f"{sum(value > 0 for value in fold_excess)}/{len(fold_excess)}"),
+        ("Worst selection-fold excess return", f"{min(fold_excess, default=0.0):.2%}"),
+        ("Median selection-fold excess return", f"{sorted(fold_excess)[len(fold_excess) // 2] if fold_excess else 0.0:.2%}"),
         ("Cost scenarios", json.dumps(costs, sort_keys=True)),
+        ("Execution-stress panel", json.dumps(execution, sort_keys=True)),
     )
     evidence_html = "\n".join(
         f"<li><strong>{escape(label)}:</strong> {escape(str(value))}</li>"

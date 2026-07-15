@@ -62,8 +62,15 @@ def _stage_runner(stage: Path, data_path: Path) -> None:
 
 
 def run_sandboxed_backtest(
-    data_path: Path = DEFAULT_CSV, ticker: str = DEFAULT_TICKER
+    data_path: Path = DEFAULT_CSV,
+    ticker: str = DEFAULT_TICKER,
+    selection_reservation_id: int | None = None,
 ) -> Path:
+    if selection_reservation_id is None:
+        raise RuntimeError(
+            "selection execution requires a controller reservation; "
+            "use daily_controller.py rather than sandbox_runner.py directly"
+        )
     trusted_changes = [
         path
         for path in changed_files()
@@ -124,8 +131,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=Path, default=DEFAULT_CSV)
     parser.add_argument("--ticker", default=DEFAULT_TICKER)
+    parser.add_argument("--selection-reservation-id", type=int, required=True)
     args = parser.parse_args()
-    output = run_sandboxed_backtest(args.data, args.ticker)
+    output = run_sandboxed_backtest(args.data, args.ticker, args.selection_reservation_id)
     print(f"wrote sandboxed result to {output}")
 
 

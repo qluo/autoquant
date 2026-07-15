@@ -6,9 +6,18 @@ import unittest
 from pathlib import Path
 
 from data import Bar, load_risk_free_daily
+from validate import validate_bars
 
 
 class RiskFreeDataTests(unittest.TestCase):
+    def test_rejects_inconsistent_ohlc(self) -> None:
+        bars = [
+            Bar(dt.date(2024, 1, 1), 100, 99, 98, 100, 100, 1),
+            Bar(dt.date(2024, 1, 2), 100, 100, 100, 100, 100, 1),
+        ]
+        with self.assertRaisesRegex(ValueError, "inconsistent OHLC"):
+            validate_bars(bars)
+
     def test_loads_and_forward_fills_pinned_rates(self) -> None:
         bars = [
             Bar(dt.date(2024, 1, 1), 100, 100, 100, 100, 100, 1),
