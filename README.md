@@ -63,7 +63,7 @@ The agent instructions are deliberately split by purpose:
 - [AGENTS.md](AGENTS.md): short, non-negotiable guardrails.
 - [program.md](program.md): the canonical execution protocol and acceptance
   criteria.
-- [research_playbook.md](docs/research_playbook.md): hypothesis methodology and
+- [research_playbook.md](research_playbook.md): hypothesis methodology and
   approved idea sources.
 
 For a map of the runtime modules, operating documents, and generated artifacts,

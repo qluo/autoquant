@@ -14,7 +14,8 @@ audit.
 | `experiment_manifest.py`, `universe_registry.py` | Approved experiment and universe definitions. |
 | `evaluation.py`, `promote_candidate.py`, `robustness.py` | Human-only or frozen-candidate workflows. |
 | `tests/` | Regression tests for the trusted harness. |
-| `docs/` | Research guidance, input policy, and implementation history. |
+| `research_playbook.md` | Agent-facing hypothesis methodology and idea sources. |
+| `docs/` | Input policy and implementation history. |
 | `manifests/` | Human-approved experiment manifests. |
 | `data/`, `runs/` | Local inputs and generated artifacts; both are ignored by Git. |
 

@@ -78,7 +78,6 @@ autoquant/
   docs/
     data_policy.md
     implementation_plan.md
-    research_playbook.md
     project_structure.md
 ```
 
