@@ -16,7 +16,8 @@ Non-negotiable rules:
    robustness panel for research or tuning.
 4. Use only the approved controller and recorder to create ledger events,
    snapshots, results, and reviewer reports; do not edit those artifacts
-   directly.
+   directly. The controller creates its own temporary worktree; invoke it only
+   from the primary checkout, never from an outer linked or temporary worktree.
 5. Never alter trusted evaluator files, tests, data, policy, cost assumptions,
    or evaluation windows. Never access brokers, locked-holdout outputs,
    `evaluation.py`, or `promote_candidate.py`.

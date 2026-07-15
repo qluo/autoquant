@@ -69,7 +69,8 @@ The agent instructions are deliberately split by purpose:
 The bounded execution component is `daily_controller.py`: after the agent
 creates a manifest, it validates inputs and budget, runs the selected vetted
 family in an isolated Git worktree, records immutable artifacts, and writes the
-report.
+report. Run it only from the primary repository checkout; it creates its own
+temporary worktree and refuses to run from a linked or temporary worktree.
 
 ```bash
 uv run python daily_controller.py --manifest <manifest.json> --dry-run

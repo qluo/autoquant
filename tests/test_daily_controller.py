@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daily_controller import _remaining_attempts
+from daily_controller import _remaining_attempts, _require_primary_checkout
 from experiment_manifest import ExperimentManifest
 from ledger import append_event
 from reviewer_summary import write_summary
@@ -45,6 +45,14 @@ class DailyControllerTests(unittest.TestCase):
                     {"event_type": "attempt", "batch_id": "other"},
                 ]
                 self.assertEqual(_remaining_attempts("daily-1"), 19)
+
+    def test_controller_rejects_linked_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".git").write_text("gitdir: /tmp/main/.git/worktrees/test\n")
+
+            with self.assertRaisesRegex(RuntimeError, "primary repository checkout"):
+                _require_primary_checkout(root)
 
     def test_summary_includes_manifest_and_metrics(self) -> None:
         manifest = ExperimentManifest(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -21,6 +22,14 @@ RISK_FREE_INPUTS = (
     ROOT / "data/risk_free_3m.csv",
     ROOT / "data/risk_free_3m.csv.meta.json",
 )
+
+
+def _require_primary_checkout(root: Path = ROOT) -> None:
+    if not (root / ".git").is_dir():
+        raise RuntimeError(
+            "daily controller must run from the primary repository checkout, "
+            "not a linked or temporary Git worktree"
+        )
 
 
 def _validate_inputs(universe: ApprovedUniverse) -> None:
@@ -107,7 +116,10 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    report = run_daily_experiment(ExperimentManifest.from_path(args.manifest), args.dry_run)
+    manifest_path = args.manifest.resolve()
+    _require_primary_checkout()
+    os.chdir(ROOT)
+    report = run_daily_experiment(ExperimentManifest.from_path(manifest_path), args.dry_run)
     if report is None:
         print("daily controller preflight passed")
     else:
