@@ -186,6 +186,20 @@ different economic drivers improves drawdown and risk-adjusted return. Examples
 include equity, duration, inflation-sensitive, and commodity exposures. This is
 portfolio construction, not proof that each component has alpha.
 
+## Authorized execution protocol
+
+Read experiment memory, this playbook, and `policy.toml` before an authorized
+run. After explicit approval, create a manifest, test one focused `strategy.py`
+change, and invoke `daily_controller.py` from the primary checkout. The
+controller is the sole selection path: it reserves selection budget, records
+immutable artifacts, and writes the report.
+
+Classify outcomes as `invalid` (implementation, causality, or data-integrity
+failure), `rejected` (valid experiment failed precommitted criteria),
+`inconclusive` (insufficient evidence), `candidate` (passes research criteria),
+or `promoted` (independent evaluation and operational review pass). Historical
+statuses remain legacy records.
+
 ## Experiment Design
 
 Use the smallest credible experiment:

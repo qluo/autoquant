@@ -1,8 +1,8 @@
 # AutoQuant agent guardrails
 
-Read `program.md`, `research_playbook.md`, and experiment memory before any
-authorized run. `program.md` is the canonical execution protocol;
-`research_playbook.md` is the canonical source for methodology and idea sources.
+Read `research_playbook.md`, `policy.toml`, and experiment memory before any
+authorized run. The playbook is the canonical methodology and execution
+protocol; `policy.toml` contains enforceable versioned settings.
 
 Non-negotiable rules:
 

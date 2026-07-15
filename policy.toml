@@ -1,0 +1,19 @@
+[research]
+selection_dataset_id = "qqq_selection_v1"
+max_effective_hypotheses = 50
+max_candidates_advanced = 3
+max_experiment_attempts = 20
+max_experiment_minutes = 60
+
+[windows]
+development_end = "2017-12-31"
+selection_end = "2021-12-31"
+holdout_start = "2022-01-01"
+holdout_id = "2022-01-01_to_2026-07-10"
+
+[holdout]
+max_lookups = 1
+max_lookups_per_batch = 1
+
+[lifecycle]
+statuses = ["invalid", "rejected", "inconclusive", "candidate", "promoted"]

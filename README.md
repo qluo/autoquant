@@ -92,10 +92,10 @@ services.
 The agent instructions are deliberately split by purpose:
 
 - [AGENTS.md](AGENTS.md): short, non-negotiable guardrails.
-- [program.md](program.md): the canonical execution protocol and acceptance
-  criteria.
 - [research_playbook.md](research_playbook.md): hypothesis methodology and
   approved idea sources.
+- [policy.toml](policy.toml): versioned budgets, windows, dataset IDs, and
+  lifecycle settings.
 
 For a map of the runtime modules, operating documents, and generated artifacts,
 see [the project structure guide](docs/project_structure.md).
